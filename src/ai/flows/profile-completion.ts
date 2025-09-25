@@ -1,3 +1,4 @@
+
 // src/ai/flows/profile-completion.ts
 'use server';
 
@@ -22,8 +23,8 @@ const ProfileCompletionInputSchema = z.object({
 export type ProfileCompletionInput = z.infer<typeof ProfileCompletionInputSchema>;
 
 const ProfileCompletionOutputSchema = z.object({
-  suggestedRole: z.string().describe('Suggested role for the visitor (e.g., Visitor, Contractor).'),
-  suggestedAccessLevel: z.string().describe('Suggested access level for the visitor (e.g., Limited, Standard).'),
+  suggestedRole: z.enum(['Visitor', 'Contractor', 'Worker', 'Other']).describe('Suggested role for the visitor (e.g., Visitor, Contractor).'),
+  suggestedAccessLevel: z.enum(['Limited', 'Standard', 'Elevated']).describe('Suggested access level for the visitor (e.g., Limited, Standard).'),
   suggestedNotes: z.string().optional().describe('Suggested notes about the visitor based on their information.'),
 });
 
@@ -40,6 +41,9 @@ const profileCompletionPrompt = ai.definePrompt({
   prompt: `You are an AI assistant helping security guards to quickly create visitor profiles.
 
   Based on the following visitor information, suggest a role, an access level, and any relevant notes.
+  - If the company is 'Guest', the role is likely 'Visitor'.
+  - If the company name includes 'Construct', 'Electric', 'Plumbing', etc. the role is likely 'Worker' or 'Contractor'.
+  - Default to 'Visitor' and 'Limited' access if unsure.
 
   Visitor Name: {{{visitorName}}}
   Company: {{{company}}}

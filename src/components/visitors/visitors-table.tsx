@@ -1,3 +1,4 @@
+
 'use client'
 
 import {
@@ -18,9 +19,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 interface VisitorsTableProps {
   visitors: User[];
+  onDeleteVisitor: (visitorId: string) => void;
 }
 
-export function VisitorsTable({ visitors }: VisitorsTableProps) {
+export function VisitorsTable({ visitors, onDeleteVisitor }: VisitorsTableProps) {
   return (
     <Card>
       <CardHeader>
@@ -65,12 +67,24 @@ export function VisitorsTable({ visitors }: VisitorsTableProps) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                               <DropdownMenuItem>Edit Profile</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive">Delete Profile</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => onDeleteVisitor(user.id)}
+                              >
+                                Delete Profile
+                              </DropdownMenuItem>
                           </DropdownMenuContent>
                       </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
+              {visitors.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                        No visitors found.
+                    </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

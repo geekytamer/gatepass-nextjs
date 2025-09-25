@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState } from "react";
@@ -13,43 +14,57 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import type { User, UserRole } from "@/lib/types";
 
 const formSchema = z.object({
-  visitorName: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   company: z.string().min(2, { message: "Company must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
-  suggestedRole: z.enum(['Visitor', 'Contractor', 'Worker', 'Other']),
-  suggestedAccessLevel: z.enum(['Limited', 'Standard', 'Elevated']),
-  suggestedNotes: z.string().optional(),
+  role: z.enum(['Visitor', 'Contractor', 'Worker', 'Other']),
+  accessLevel: z.enum(['Limited', 'Standard', 'Elevated']),
+  notes: z.string().optional(),
 });
 
-export function NewVisitorForm() {
+type FormValues = {
+  name: string;
+  company: string;
+  email: string;
+  role: 'Visitor' | 'Contractor' | 'Worker' | 'Other';
+  accessLevel: 'Limited' | 'Standard' | 'Elevated';
+  notes?: string | undefined;
+}
+
+interface NewVisitorFormProps {
+    onNewVisitor: (visitor: Omit<User, 'id' | 'avatarUrl'>) => void;
+}
+
+export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
     const { toast } = useToast();
     const [isAiLoading, setIsAiLoading] = useState(false);
 
-    const form = useForm<z.infer<typeof formSchema>>({
+    const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            visitorName: "",
+            name: "",
             company: "",
             email: "",
-            suggestedNotes: "",
+            notes: "",
         },
     });
     
     const handleAiSuggest = async () => {
-        const { visitorName, company } = form.getValues();
-        if (!visitorName || !company) {
+        const { name, company } = form.getValues();
+        if (!name || !company) {
             toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter a name and company before using AI suggest.' });
             return;
         }
         setIsAiLoading(true);
         try {
-            const suggestions = await suggestProfileCompletion({ visitorName, company });
-            form.setValue('suggestedRole', suggestions.suggestedRole as any);
-            form.setValue('suggestedAccessLevel', suggestions.suggestedAccessLevel as any);
+            const suggestions = await suggestProfileCompletion({ visitorName: name, company: company, notes: form.getValues().notes });
+            form.setValue('role', suggestions.suggestedRole as any);
+            form.setValue('accessLevel', suggestions.suggestedAccessLevel as any);
             if(suggestions.suggestedNotes) {
-                form.setValue('suggestedNotes', suggestions.suggestedNotes);
+                form.setValue('notes', suggestions.suggestedNotes);
             }
             toast({ title: 'AI Suggestions Applied!', description: 'Role, access level, and notes have been populated.' });
         } catch (error) {
@@ -60,11 +75,17 @@ export function NewVisitorForm() {
         }
     }
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        console.log(values);
+    function onSubmit(values: FormValues) {
+        onNewVisitor({
+            name: values.name,
+            email: values.email,
+            company: values.company,
+            role: values.role as UserRole,
+        });
+
         toast({
             title: "Profile Created!",
-            description: `A new profile for ${values.visitorName} has been created.`,
+            description: `A new profile for ${values.name} has been created.`,
         });
         form.reset();
     }
@@ -79,7 +100,7 @@ export function NewVisitorForm() {
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="visitorName" render={({ field }) => (
+                            <FormField control={form.control} name="name" render={({ field }) => (
                                 <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="company" render={({ field }) => (
@@ -101,7 +122,7 @@ export function NewVisitorForm() {
                         </div>
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="suggestedRole" render={({ field }) => (
+                            <FormField control={form.control} name="role" render={({ field }) => (
                                 <FormItem><FormLabel>Role</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
@@ -113,7 +134,7 @@ export function NewVisitorForm() {
                                     </SelectContent>
                                 </Select><FormMessage /></FormItem>
                             )} />
-                            <FormField control={form.control} name="suggestedAccessLevel" render={({ field }) => (
+                            <FormField control={form.control} name="accessLevel" render={({ field }) => (
                                 <FormItem><FormLabel>Access Level</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select access level" /></SelectTrigger></FormControl>
@@ -125,7 +146,7 @@ export function NewVisitorForm() {
                                 </Select><FormMessage /></FormItem>
                             )} />
                         </div>
-                        <FormField control={form.control} name="suggestedNotes" render={({ field }) => (
+                        <FormField control={form.control} name="notes" render={({ field }) => (
                             <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea placeholder="AI generated notes..." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                     </CardContent>

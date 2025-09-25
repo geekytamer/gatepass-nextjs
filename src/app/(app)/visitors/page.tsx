@@ -1,10 +1,40 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisitorsTable } from "@/components/visitors/visitors-table";
 import { NewVisitorForm } from "@/components/visitors/new-visitor-form";
 import { getVisitors } from "@/services/userService";
+import type { User } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
-export default async function VisitorsPage() {
-  const visitors = await getVisitors();
+export default function VisitorsPage() {
+  const [visitors, setVisitors] = useState<User[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    getVisitors().then(setVisitors);
+  }, []);
+
+  const addVisitor = (newVisitor: Omit<User, 'id' | 'avatarUrl'>) => {
+    const visitorWithId: User = {
+        ...newVisitor,
+        id: `usr_${Date.now()}`,
+        // In a real app, you might have a default or generated avatar
+        avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
+    };
+    setVisitors(prev => [visitorWithId, ...prev]);
+  };
+
+  const deleteVisitor = (visitorId: string) => {
+    setVisitors(prev => prev.filter(v => v.id !== visitorId));
+    toast({
+        title: 'Visitor Deleted',
+        description: 'The visitor profile has been removed.',
+        variant: 'destructive',
+    });
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -18,10 +48,10 @@ export default async function VisitorsPage() {
           <TabsTrigger value="new-visitor">New Visitor Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="visitor-list">
-            <VisitorsTable visitors={visitors} />
+            <VisitorsTable visitors={visitors} onDeleteVisitor={deleteVisitor} />
         </TabsContent>
         <TabsContent value="new-visitor">
-            <NewVisitorForm />
+            <NewVisitorForm onNewVisitor={addVisitor} />
         </TabsContent>
       </Tabs>
     </div>

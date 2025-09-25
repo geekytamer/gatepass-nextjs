@@ -1,3 +1,4 @@
+
 'use client'
 
 import {
@@ -15,12 +16,14 @@ import type { AccessRequest } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface RequestsTableProps {
   requests: AccessRequest[];
   title: string;
   description: string;
   showActions?: boolean;
+  onAction?: (requestId: string, status: 'Approved' | 'Denied') => void;
 }
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline'} = {
@@ -35,7 +38,17 @@ const statusColorClasses = {
   Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
 }
 
-export function RequestsTable({ requests, title, description, showActions = false }: RequestsTableProps) {
+export function RequestsTable({ requests, title, description, showActions = false, onAction }: RequestsTableProps) {
+  const { toast } = useToast();
+
+  const handleAction = (requestId: string, status: 'Approved' | 'Denied') => {
+    onAction?.(requestId, status);
+    toast({
+        title: `Request ${status}`,
+        description: `The request has been ${status.toLowerCase()}.`
+    });
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -76,13 +89,20 @@ export function RequestsTable({ requests, title, description, showActions = fals
                   {showActions && (
                       <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="icon"><Check className="h-4 w-4 text-green-600" /></Button>
-                              <Button variant="outline" size="icon"><X className="h-4 w-4 text-red-600" /></Button>
+                              <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Approved')}><Check className="h-4 w-4 text-green-600" /></Button>
+                              <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Denied')}><X className="h-4 w-4 text-red-600" /></Button>
                           </div>
                       </TableCell>
                   )}
                 </TableRow>
               ))}
+              {requests.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={showActions ? 5 : 4} className="h-24 text-center">
+                        No requests found.
+                    </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

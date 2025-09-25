@@ -1,3 +1,4 @@
+
 'use client'
 
 import { z } from "zod";
@@ -15,7 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
+import type { AccessRequest } from "@/lib/types";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 const formSchema = z.object({
   accessDate: z.date({
@@ -29,7 +31,12 @@ const formSchema = z.object({
   documentation: z.instanceof(File).optional(),
 });
 
-export function NewRequestForm() {
+interface NewRequestFormProps {
+    currentUserId: string;
+    onNewRequest: (request: Omit<AccessRequest, 'id'|'status'|'requestedAt'>) => void;
+}
+
+export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormProps) {
     const { toast } = useToast();
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -40,7 +47,15 @@ export function NewRequestForm() {
     });
 
     function onSubmit(values: z.infer<typeof formSchema>) {
-        console.log(values);
+        // In a real app, you'd get the user's actual name and avatar.
+        onNewRequest({
+            userId: currentUserId,
+            userName: "Mike Worker",
+            userAvatar: PlaceHolderImages[4].imageUrl,
+            date: format(values.accessDate, "yyyy-MM-dd"),
+            reason: values.reason,
+        });
+
         toast({
             title: "Request Submitted!",
             description: "Your access request has been sent for approval.",
@@ -69,7 +84,7 @@ export function NewRequestForm() {
                                         <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-[240px] pl-3 text-left font-normal",
+                                            "w-full md:w-[240px] pl-3 text-left font-normal",
                                             !field.value && "text-muted-foreground"
                                         )}
                                         >
@@ -88,7 +103,7 @@ export function NewRequestForm() {
                                         selected={field.value}
                                         onSelect={field.onChange}
                                         disabled={(date) =>
-                                        date < new Date() || date > new Date("2030-01-01")
+                                            date < new Date(new Date().setHours(0,0,0,0))
                                         }
                                         initialFocus
                                     />

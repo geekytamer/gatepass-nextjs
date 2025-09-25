@@ -10,13 +10,13 @@ export default function AccessRequestsPage() {
   const pendingRequests = mockAccessRequests.filter(req => req.status === 'Pending');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
        <header>
         <h1 className="text-3xl font-bold tracking-tight">Access Requests</h1>
         <p className="text-muted-foreground">Manage, submit, and approve access requests.</p>
       </header>
       <Tabs defaultValue="my-requests">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 md:w-auto">
+        <TabsList className="grid w-full grid-cols-2 md:w-auto md:grid-cols-3">
           <TabsTrigger value="my-requests">My Requests</TabsTrigger>
           <TabsTrigger value="new-request">New Request</TabsTrigger>
           {isManager && <TabsTrigger value="approve">Approve Requests</TabsTrigger>}

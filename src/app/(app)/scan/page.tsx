@@ -46,23 +46,23 @@ export default function ScanPage() {
     }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center space-y-6">
+    <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4">
         <div className="p-6 bg-primary/10 rounded-full">
-            <ScanLine className="h-16 w-16 text-primary" />
+            <ScanLine className="h-12 w-12 md:h-16 md:w-16 text-primary" />
         </div>
-        <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Gate Scanning</h1>
-            <p className="text-muted-foreground max-w-md">
+        <div className="space-y-2 mt-6">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gate Scanning</h1>
+            <p className="text-muted-foreground max-w-md mx-auto">
             Ready to scan QR codes for check-in and check-out. Position the user's QR code in front of the camera.
             </p>
         </div>
-        <Button size="lg" onClick={handleScan}>
+        <Button size="lg" onClick={handleScan} className="mt-6">
             <ScanLine className="mr-2 h-5 w-5" />
             Simulate Scan
         </Button>
 
-         <Dialog open={isScanning} onOpenChange={setIsScanning}>
-            <DialogContent onEscapeKeyDown={handleClose} onPointerDownOutside={handleClose} className="sm:max-w-[425px]">
+         <Dialog open={isScanning} onOpenChange={handleClose}>
+            <DialogContent className="sm:max-w-[425px]">
                 {scannedUser ? (
                     <>
                         <DialogHeader>
@@ -70,17 +70,17 @@ export default function ScanPage() {
                             <DialogDescription>User profile found. Please verify and proceed.</DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div className="flex items-center gap-4">
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <Avatar className="h-20 w-20">
                                     <AvatarImage src={scannedUser.avatarUrl} alt={scannedUser.name} />
                                     <AvatarFallback>{scannedUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
-                                <div className="space-y-1">
+                                <div className="space-y-1 text-center sm:text-left">
                                     <h3 className="text-xl font-semibold">{scannedUser.name}</h3>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                    <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
                                         <User className="h-4 w-4" /> <span>{scannedUser.role}</span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                    <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
                                         <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
                                     </div>
                                 </div>

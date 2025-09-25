@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Live overview of gate activity and security status.</p>
@@ -18,7 +18,7 @@ export default function DashboardPage() {
         <StatsCards />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <Suspense fallback={<Card><CardContent className="p-6"><Skeleton className="h-[350px] w-full" /></CardContent></Card>}>
             <ActivityChart />

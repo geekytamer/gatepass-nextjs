@@ -43,47 +43,49 @@ export function RequestsTable({ requests, title, description, showActions = fals
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Access Date</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Status</TableHead>
-              {showActions && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((request) => (
-              <TableRow key={request.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={request.userAvatar} alt={request.userName} />
-                      <AvatarFallback>{request.userName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="font-medium">{request.userName}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{format(new Date(request.date), 'MMMM dd, yyyy')}</TableCell>
-                <TableCell className="max-w-xs truncate">{request.reason}</TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
-                    {request.status}
-                  </Badge>
-                </TableCell>
-                {showActions && (
-                    <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" size="icon"><Check className="h-4 w-4 text-green-600" /></Button>
-                            <Button variant="outline" size="icon"><X className="h-4 w-4 text-red-600" /></Button>
-                        </div>
-                    </TableCell>
-                )}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Access Date</TableHead>
+                <TableHead className="hidden md:table-cell">Reason</TableHead>
+                <TableHead>Status</TableHead>
+                {showActions && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {requests.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={request.userAvatar} alt={request.userName} />
+                        <AvatarFallback>{request.userName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="font-medium whitespace-nowrap">{request.userName}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{format(new Date(request.date), 'MMMM dd, yyyy')}</TableCell>
+                  <TableCell className="hidden md:table-cell max-w-xs truncate">{request.reason}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
+                      {request.status}
+                    </Badge>
+                  </TableCell>
+                  {showActions && (
+                      <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                              <Button variant="outline" size="icon"><Check className="h-4 w-4 text-green-600" /></Button>
+                              <Button variant="outline" size="icon"><X className="h-4 w-4 text-red-600" /></Button>
+                          </div>
+                      </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

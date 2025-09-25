@@ -1,12 +1,19 @@
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { mockUsers } from '@/lib/data';
+import { getUser } from '@/services/userService';
 import { User, Building, Mail } from 'lucide-react';
 import { QrCode } from '@/components/qr-code';
 import { Badge } from '@/components/ui/badge';
+import { redirect } from 'next/navigation';
 
-export default function ProfilePage() {
-    const user = mockUsers[0]; // Assume logged-in user is the admin for this mock
+export default async function ProfilePage() {
+    // In a real app, you'd get the logged-in user's ID
+    const user = await getUser('usr_001'); 
+
+    if (!user) {
+        // Handle case where user is not found, maybe redirect to login
+        redirect('/');
+    }
 
   return (
     <div className="space-y-4 md:space-y-6">

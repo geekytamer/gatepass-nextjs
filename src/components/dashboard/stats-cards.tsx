@@ -1,12 +1,9 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Users, Hourglass, LogIn, Building } from 'lucide-react';
-import { mockUsers, mockAccessRequests, mockGateActivity } from '@/lib/data';
+import { getDashboardStats } from '@/services/statsService';
 
 export async function StatsCards() {
-  const totalUsers = mockUsers.length;
-  const pendingRequests = mockAccessRequests.filter(r => r.status === 'Pending').length;
-  const checkedIn = mockGateActivity.filter(a => a.type === 'Check-in').length - mockGateActivity.filter(a => a.type === 'Check-out').length;
-  const totalVisitors = mockUsers.filter(u => u.role === 'Visitor' || u.role === 'Worker').length;
+  const { totalUsers, pendingRequests, checkedIn, totalVisitors } = await getDashboardStats();
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -36,7 +33,7 @@ export async function StatsCards() {
           <LogIn className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{checkedIn > 0 ? checkedIn : 0}</div>
+          <div className="text-2xl font-bold">{checkedIn}</div>
           <p className="text-xs text-muted-foreground">Personnel on-site now</p>
         </CardContent>
       </Card>

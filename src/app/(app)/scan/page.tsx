@@ -13,20 +13,28 @@ import {
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { mockUsers } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { getUsers } from '@/services/userService';
+import type { User as UserType } from '@/lib/types';
 
 export default function ScanPage() {
     const [isScanning, setIsScanning] = useState(false);
-    const [scannedUser, setScannedUser] = useState<typeof mockUsers[0] | null>(null);
+    const [scannedUser, setScannedUser] = useState<UserType | null>(null);
     const { toast } = useToast();
 
-    const handleScan = () => {
+    const handleScan = async () => {
         setIsScanning(true);
         // Simulate scanning a random user
-        setTimeout(() => {
-            const randomUser = mockUsers[Math.floor(Math.random() * mockUsers.length)];
-            setScannedUser(randomUser);
+        setTimeout(async () => {
+            try {
+                const users = await getUsers();
+                const randomUser = users[Math.floor(Math.random() * users.length)];
+                setScannedUser(randomUser);
+            } catch (e) {
+                console.error(e);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch users to simulate scan.'});
+                handleClose();
+            }
         }, 1000);
     }
 

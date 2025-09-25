@@ -1,13 +1,15 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
 import { NewRequestForm } from "@/components/access-requests/new-request-form";
-import { mockAccessRequests } from "@/lib/data";
+import { getRequestsForUser, getPendingRequests } from "@/services/accessRequestService";
 
-export default function AccessRequestsPage() {
-  // In a real app, this would be based on the logged-in user's role.
+export default async function AccessRequestsPage() {
+  // In a real app, this would be based on the logged-in user's role and ID.
   const isManager = true; 
-  const currentUserRequests = mockAccessRequests.filter(req => req.userId === 'usr_005');
-  const pendingRequests = mockAccessRequests.filter(req => req.status === 'Pending');
+  const currentUserId = 'usr_005';
+
+  const currentUserRequests = await getRequestsForUser(currentUserId);
+  const pendingRequests = await getPendingRequests();
 
   return (
     <div className="space-y-4 md:space-y-6">

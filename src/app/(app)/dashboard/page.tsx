@@ -20,7 +20,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <Suspense fallback={<Card><CardContent className="p-6"><Skeleton className="h-[350px] w-full" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>}>
             <ActivityChart />
           </Suspense>
         </div>

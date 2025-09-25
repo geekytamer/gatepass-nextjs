@@ -1,10 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisitorsTable } from "@/components/visitors/visitors-table";
 import { NewVisitorForm } from "@/components/visitors/new-visitor-form";
-import { mockUsers } from "@/lib/data";
+import { getVisitors } from "@/services/userService";
 
-export default function VisitorsPage() {
-  const visitors = mockUsers.filter(u => u.role === 'Visitor' || u.role === 'Worker');
+export default async function VisitorsPage() {
+  const visitors = await getVisitors();
 
   return (
     <div className="space-y-4 md:space-y-6">

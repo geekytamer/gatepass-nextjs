@@ -9,12 +9,13 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockUsers } from '@/lib/data';
+import { getUsers } from '@/services/userService';
 import type { UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 
-export default function UsersPage() {
+export default async function UsersPage() {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
+  const users = await getUsers();
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -40,7 +41,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockUsers.map((user) => (
+                {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">

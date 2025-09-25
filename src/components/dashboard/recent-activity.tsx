@@ -9,11 +9,11 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { mockGateActivity } from '@/lib/data';
+import { getRecentGateActivity } from '@/services/gateActivityService';
 import { formatDistanceToNow } from 'date-fns';
 
 export async function RecentActivity() {
-  const recentActivity = mockGateActivity.slice(0, 5);
+  const recentActivity = await getRecentGateActivity(5);
 
   return (
     <Card>

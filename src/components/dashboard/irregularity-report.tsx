@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { detectIrregularities } from '@/ai/flows/detect-irregularities';
-import { mockGateActivity } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { getAllGateActivity } from '@/services/gateActivityService';
 
 export function IrregularityReport() {
   const [report, setReport] = useState<string>('');
@@ -23,7 +23,8 @@ export function IrregularityReport() {
     setIsLoading(true);
     setReport('');
     try {
-      const activityData = JSON.stringify(mockGateActivity);
+      const activity = await getAllGateActivity();
+      const activityData = JSON.stringify(activity);
       const result = await detectIrregularities({ activityData });
       setReport(result.report);
     } catch (error) {

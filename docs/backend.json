@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's profile in the system.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Admin", "Manager", "Security", "Visitor", "Worker"],
+          "description": "The role of the user in the system."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's avatar image."
+        },
+        "company": {
+            "type": "string",
+            "description": "The company the user belongs to."
+        }
+      },
+      "required": ["name", "email", "role", "avatarUrl"]
+    },
+    "AccessRequest": {
+        "title": "Access Request",
+        "description": "Represents a request for access to the premises.",
+        "type": "object",
+        "properties": {
+            "userId": {
+                "type": "string"
+            },
+            "userName": {
+                "type": "string"
+            },
+            "userAvatar": {
+                "type": "string",
+                "format": "uri"
+            },
+            "date": {
+                "type": "string",
+                "format": "date"
+            },
+            "reason": {
+                "type": "string"
+            },
+            "status": {
+                "type": "string",
+                "enum": ["Pending", "Approved", "Denied"]
+            },
+            "requestedAt": {
+                "type": "string",
+                "format": "date-time"
+            }
+        },
+        "required": ["userId", "userName", "userAvatar", "date", "reason", "status", "requestedAt"]
+    },
+    "GateActivity": {
+        "title": "Gate Activity",
+        "description": "Represents a check-in or check-out event at a gate.",
+        "type": "object",
+        "properties": {
+            "userId": {
+                "type": "string"
+            },
+            "userName": {
+                "type": "string"
+            },
+            "userAvatar": {
+                "type": "string",
+                "format": "uri"
+            },
+            "timestamp": {
+                "type": "string",
+                "format": "date-time"
+            },
+            "type": {
+                "type": "string",
+                "enum": ["Check-in", "Check-out"]
+            },
+            "gate": {
+                "type": "string"
+            }
+        },
+        "required": ["userId", "userName", "userAvatar", "timestamp", "type", "gate"]
+    }
+  },
+  "auth": {
+    "providers": []
+  },
+  "firestore": {
+      "/users/{userId}": {
+          "schema": { "$ref": "#/entities/UserProfile" },
+          "description": "Stores user profile information."
+      },
+      "/accessRequests/{requestId}": {
+          "schema": { "$ref": "#/entities/AccessRequest" },
+          "description": "Stores all access requests."
+      },
+      "/gateActivity/{activityId}": {
+          "schema": { "$ref": "#/entities/GateActivity" },
+          "description": "Logs all gate check-in and check-out activities."
+      }
+  }
+}

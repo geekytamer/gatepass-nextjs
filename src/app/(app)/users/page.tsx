@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -10,12 +13,36 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getUsers } from '@/services/userService';
-import type { UserRole } from '@/lib/types';
+import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
-export default async function UsersPage() {
+export default function UsersPage() {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
-  const users = await getUsers();
+  const [users, setUsers] = useState<User[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    getUsers().then(setUsers);
+  }, []);
+
+  const handleRoleChange = (userId: string, newRole: UserRole) => {
+    setUsers(prevUsers =>
+      prevUsers.map(user =>
+        user.id === userId ? { ...user, role: newRole } : user
+      )
+    );
+  };
+
+  const handleSave = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    // In a real app, you would now make an API call to save the changes to the backend.
+    console.log('Saving user:', user);
+    toast({
+      title: 'User Updated',
+      description: `${user?.name}'s role has been saved.`,
+    });
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -49,13 +76,13 @@ export default async function UsersPage() {
                           <AvatarImage src={user.avatarUrl} alt={user.name} />
                           <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <div className="font-medium">{user.name}</div>
+                        <div className="font-medium whitespace-nowrap">{user.name}</div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
                     <TableCell className="hidden md:table-cell">{user.company || 'N/A'}</TableCell>
                     <TableCell>
-                      <Select defaultValue={user.role}>
+                      <Select value={user.role} onValueChange={(newRole: UserRole) => handleRoleChange(user.id, newRole)}>
                         <SelectTrigger className="w-[120px]">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
@@ -67,7 +94,7 @@ export default async function UsersPage() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline">Save</Button>
+                      <Button variant="outline" onClick={() => handleSave(user.id)}>Save</Button>
                     </TableCell>
                   </TableRow>
                 ))}

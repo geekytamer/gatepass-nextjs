@@ -1,8 +1,10 @@
+
 'use client'
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
-import { ScanLine, Check, LogOut, User, Building, X } from 'lucide-react';
+import { ScanLine, Check, LogOut, User, Building, X, CameraOff } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,72 +12,124 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getUsers } from '@/services/userService';
+import { getUser, getUsers } from '@/services/userService';
 import type { User as UserType } from '@/lib/types';
+import { Card } from '@/components/ui/card';
+
+
+const QR_SCANNER_ELEMENT_ID = 'qr-scanner';
 
 export default function ScanPage() {
-    const [isScanning, setIsScanning] = useState(false);
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-    const videoRef = React.useRef<HTMLVideoElement>(null);
-
+    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const [isScanning, setIsScanning] = useState(false);
 
     useEffect(() => {
-        const getCameraPermission = async () => {
-          try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                // For environments where camera is not available (like during server-side rendering or in a secure context)
-                setHasCameraPermission(false);
-                console.warn('Camera API not available.');
-                return;
-            }
-            const stream = await navigator.mediaDevices.getUserMedia({video: true});
-            setHasCameraPermission(true);
-    
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-            }
-          } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-              variant: 'destructive',
-              title: 'Camera Access Denied',
-              description: 'Please enable camera permissions in your browser settings to use this feature.',
-            });
-          }
-        };
-    
-        getCameraPermission();
-      }, [toast]);
+        const startScanner = async () => {
+             if (isScanning || scannerRef.current || hasCameraPermission === false) return;
 
-
-    const handleScan = async () => {
-        setIsScanning(true);
-        // Simulate scanning a random user
-        setTimeout(async () => {
             try {
-                const users = await getUsers();
-                const randomUser = users[Math.floor(Math.random() * users.length)];
-                setScannedUser(randomUser);
-            } catch (e) {
-                console.error(e);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch users to simulate scan.'});
-                handleClose();
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length) {
+                    setHasCameraPermission(true);
+                    setIsScanning(true);
+
+                    const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, {
+                        // @ts-ignore - verbose is in the type definition but not in the implementation
+                        verbose: false,
+                    });
+                    scannerRef.current = scanner;
+
+                    const onScanSuccess = async (decodedText: string) => {
+                        console.log(`Scan result: ${decodedText}`);
+                        if (scannerRef.current?.isScanning) {
+                            await scannerRef.current.stop();
+                        }
+                        
+                        try {
+                            const user = await getUser(decodedText);
+                            if (user) {
+                                setScannedUser(user);
+                            } else {
+                                toast({ variant: 'destructive', title: 'Scan Error', description: `User with ID "${decodedText}" not found.`});
+                                restartScanner();
+                            }
+                        } catch (e) {
+                             console.error(e);
+                             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.'});
+                             restartScanner();
+                        }
+                    };
+
+                    const onScanError = (error: any) => {
+                        // This will fire continuously when no QR code is in view.
+                        // We can ignore it for a cleaner console.
+                    };
+                    
+                    scanner.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
+                        onScanSuccess,
+                        onScanError
+                    ).catch(err => {
+                        console.error("Scanner start error:", err);
+                        setHasCameraPermission(false);
+                        setIsScanning(false);
+                    });
+
+                } else {
+                    setHasCameraPermission(false);
+                }
+            } catch (err) {
+                 console.error('Camera initialization error:', err);
+                 setHasCameraPermission(false);
             }
-        }, 1000);
-    }
+        };
+
+        const restartScanner = () => {
+            if (!scannerRef.current || !scannerRef.current.isScanning) {
+                startScanner();
+            }
+        };
+        
+        startScanner();
+
+        return () => {
+            if (scannerRef.current && scannerRef.current.isScanning) {
+                scannerRef.current.stop().catch(err => console.error("Failed to stop scanner", err));
+            }
+            scannerRef.current = null;
+            setIsScanning(false);
+        };
+    }, [isScanning, hasCameraPermission, toast]);
 
     const handleClose = () => {
-        setIsScanning(false);
         setScannedUser(null);
+        if (scannerRef.current && !scannerRef.current.isScanning) {
+             setIsScanning(false); // trigger restart
+        }
     }
+    
+    const handleSimulateScan = async () => {
+        try {
+            const users = await getUsers();
+            const randomUser = users[Math.floor(Math.random() * users.length)];
+            setScannedUser(randomUser);
+        } catch (e) {
+            console.error(e);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch users to simulate scan.'});
+            handleClose();
+        }
+    }
+
 
     const handleCheckIn = () => {
         toast({ title: 'Check-in Successful', description: `${scannedUser?.name} has been checked in.` });
@@ -90,17 +144,27 @@ export default function ScanPage() {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
         <div className="w-full max-w-md mx-auto">
-            <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <ScanLine className="h-1/2 w-1/2 text-primary/50" />
-                </div>
-            </div>
+             <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border flex items-center justify-center">
+                 {hasCameraPermission === null ? (
+                    <div className="text-muted-foreground">Initializing Camera...</div>
+                 ) : hasCameraPermission ? (
+                    <div id={QR_SCANNER_ELEMENT_ID} className="w-full h-full [&>video]:w-full [&>video]:h-full [&>video]:object-cover [&>div>img]:hidden [&>div>button]:hidden" />
+                 ) : (
+                    <div className="flex flex-col items-center gap-2 text-destructive p-4">
+                        <CameraOff className="h-10 w-10" />
+                        <span className="font-semibold">Camera Not Available</span>
+                        <p className="text-sm text-muted-foreground">Could not access the camera. Please check your browser permissions.</p>
+                    </div>
+                 )}
+                 { hasCameraPermission && <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg shadow-inner-strong" style={{boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)'}}/>
+                </div>}
+            </Card>
              { hasCameraPermission === false && (
-                <Alert variant="destructive" className="mt-4">
+                <Alert variant="destructive" className="mt-4 text-left">
                         <AlertTitle>Camera Access Required</AlertTitle>
                         <AlertDescription>
-                            Please allow camera access in your browser to use the scanner. You can use the simulation button below for now.
+                           Please allow camera access in your browser to use the scanner. You can use the simulation button below for now.
                         </AlertDescription>
                 </Alert>
             )}
@@ -109,11 +173,11 @@ export default function ScanPage() {
         <div className="space-y-2">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gate Scanning</h1>
             <p className="text-muted-foreground max-w-md mx-auto">
-                Ready to scan QR codes. Position the user's QR code in front of the camera or use the simulation.
+                Position a user's QR code inside the frame to scan it.
             </p>
         </div>
-        <Button size="lg" onClick={handleScan}>
-            <ScanLine className="mr-2 h-5 w-5" />
+        <Button size="lg" onClick={handleSimulateScan}>
+            <User className="mr-2 h-5 w-5" />
             Simulate Scan
         </Button>
 

@@ -1,7 +1,7 @@
 
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { ScanLine, Check, LogOut, User, Building, X, CameraOff } from 'lucide-react';
@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { getUser, getUsers } from '@/services/userService';
+import { addGateActivity } from '@/services/gateActivityService';
 import type { User as UserType } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 
@@ -31,19 +32,21 @@ export default function ScanPage() {
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [isScanning, setIsScanning] = useState(false);
+    
+    const restartScanner = useCallback(() => {
+        if (scannerRef.current && scannerRef.current.isScanning) {
+            return;
+        }
+         if (hasCameraPermission === false) return;
 
-    useEffect(() => {
-        const startScanner = async () => {
-             if (isScanning || scannerRef.current || hasCameraPermission === false) return;
-
+        const start = async () => {
+            setIsScanning(true);
             try {
                 const devices = await Html5Qrcode.getCameras();
                 if (devices && devices.length) {
                     setHasCameraPermission(true);
-                    setIsScanning(true);
 
                     const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, {
-                        // @ts-ignore - verbose is in the type definition but not in the implementation
                         verbose: false,
                     });
                     scannerRef.current = scanner;
@@ -52,6 +55,7 @@ export default function ScanPage() {
                         console.log(`Scan result: ${decodedText}`);
                         if (scannerRef.current?.isScanning) {
                             await scannerRef.current.stop();
+                            setIsScanning(false);
                         }
                         
                         try {
@@ -68,57 +72,62 @@ export default function ScanPage() {
                              restartScanner();
                         }
                     };
-
-                    const onScanError = (error: any) => {
-                        // This will fire continuously when no QR code is in view.
-                        // We can ignore it for a cleaner console.
-                    };
                     
                     scanner.start(
                         { facingMode: "environment" },
                         { fps: 10, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
                         onScanSuccess,
-                        onScanError
+                        () => {} // Ignore scan error
                     ).catch(err => {
                         console.error("Scanner start error:", err);
-                        setHasCameraPermission(false);
                         setIsScanning(false);
+                        // No need to set hasCameraPermission to false here, as it might be a temporary issue
                     });
-
-                } else {
-                    setHasCameraPermission(false);
                 }
             } catch (err) {
                  console.error('Camera initialization error:', err);
                  setHasCameraPermission(false);
+                 setIsScanning(false);
             }
         };
 
-        const restartScanner = () => {
-            if (!scannerRef.current || !scannerRef.current.isScanning) {
-                startScanner();
-            }
-        };
+        start();
+    }, [hasCameraPermission, toast]);
+
+    useEffect(() => {
+        // Initial check for camera permission and starting the scanner
+        Html5Qrcode.getCameras()
+            .then(devices => {
+                if (devices && devices.length) {
+                    setHasCameraPermission(true);
+                    restartScanner();
+                } else {
+                    setHasCameraPermission(false);
+                }
+            })
+            .catch(() => {
+                setHasCameraPermission(false);
+            });
         
-        startScanner();
-
         return () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch(err => console.error("Failed to stop scanner", err));
             }
             scannerRef.current = null;
-            setIsScanning(false);
         };
-    }, [isScanning, hasCameraPermission, toast]);
+    }, [restartScanner]);
+
 
     const handleClose = () => {
         setScannedUser(null);
-        if (scannerRef.current && !scannerRef.current.isScanning) {
-             setIsScanning(false); // trigger restart
-        }
+        restartScanner();
     }
     
     const handleSimulateScan = async () => {
+        if (scannerRef.current && scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+            setIsScanning(false);
+        }
         try {
             const users = await getUsers();
             const randomUser = users[Math.floor(Math.random() * users.length)];
@@ -130,14 +139,10 @@ export default function ScanPage() {
         }
     }
 
-
-    const handleCheckIn = () => {
-        toast({ title: 'Check-in Successful', description: `${scannedUser?.name} has been checked in.` });
-        handleClose();
-    }
-    
-    const handleCheckOut = () => {
-        toast({ title: 'Check-out Successful', description: `${scannedUser?.name} has been checked out.` });
+    const handleActivity = async (type: 'Check-in' | 'Check-out') => {
+        if (!scannedUser) return;
+        await addGateActivity(scannedUser.id, type, 'Main Gate');
+        toast({ title: `${type} Successful`, description: `${scannedUser?.name} has been checked ${type.toLowerCase()}.` });
         handleClose();
     }
 
@@ -181,7 +186,7 @@ export default function ScanPage() {
             Simulate Scan
         </Button>
 
-         <Dialog open={!!scannedUser} onOpenChange={handleClose}>
+         <Dialog open={!!scannedUser} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="sm:max-w-[425px]">
                 {scannedUser ? (
                     <>
@@ -210,8 +215,8 @@ export default function ScanPage() {
                             </div>
                         </div>
                         <DialogFooter className="grid grid-cols-2 gap-2">
-                            <Button variant="outline" onClick={handleCheckOut}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
-                            <Button onClick={handleCheckIn}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
+                            <Button variant="outline" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
+                            <Button onClick={() => handleActivity('Check-in')}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
                         </DialogFooter>
                     </>
                 ) : (

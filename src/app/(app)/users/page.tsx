@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -12,7 +13,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getUsers } from '@/services/userService';
+import { getUsers, updateUserRole } from '@/services/userService';
 import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -22,9 +23,14 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    getUsers().then(setUsers);
+  const fetchUsers = useCallback(async () => {
+    const usersData = await getUsers();
+    setUsers(usersData);
   }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
     setUsers(prevUsers =>
@@ -34,10 +40,13 @@ export default function UsersPage() {
     );
   };
 
-  const handleSave = (userId: string) => {
+  const handleSave = async (userId: string) => {
     const user = users.find(u => u.id === userId);
-    // In a real app, you would now make an API call to save the changes to the backend.
-    console.log('Saving user:', user);
+    if (!user) return;
+    
+    await updateUserRole(userId, user.role);
+    await fetchUsers(); // Refresh to confirm save
+    
     toast({
       title: 'User Updated',
       description: `${user?.name}'s role has been saved.`,

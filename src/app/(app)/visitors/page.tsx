@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisitorsTable } from "@/components/visitors/visitors-table";
 import { NewVisitorForm } from "@/components/visitors/new-visitor-form";
-import { getVisitors } from "@/services/userService";
+import { getVisitors, addUser, deleteUser as deleteUserService } from "@/services/userService";
 import type { User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,22 +13,23 @@ export default function VisitorsPage() {
   const [visitors, setVisitors] = useState<User[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    getVisitors().then(setVisitors);
+  const fetchVisitors = useCallback(async () => {
+    const visitorsData = await getVisitors();
+    setVisitors(visitorsData);
   }, []);
 
-  const addVisitor = (newVisitor: Omit<User, 'id' | 'avatarUrl'>) => {
-    const visitorWithId: User = {
-        ...newVisitor,
-        id: `usr_${Date.now()}`,
-        // In a real app, you might have a default or generated avatar
-        avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
-    };
-    setVisitors(prev => [visitorWithId, ...prev]);
+  useEffect(() => {
+    fetchVisitors();
+  }, [fetchVisitors]);
+
+  const addVisitor = async (newVisitor: Omit<User, 'id' | 'avatarUrl'>) => {
+    await addUser(newVisitor);
+    await fetchVisitors(); // Re-fetch to get the new list with ID and avatar
   };
 
-  const deleteVisitor = (visitorId: string) => {
-    setVisitors(prev => prev.filter(v => v.id !== visitorId));
+  const deleteVisitor = async (visitorId: string) => {
+    await deleteUserService(visitorId);
+    await fetchVisitors();
     toast({
         title: 'Visitor Deleted',
         description: 'The visitor profile has been removed.',

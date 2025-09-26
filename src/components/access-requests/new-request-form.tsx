@@ -17,7 +17,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { AccessRequest } from "@/lib/types";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { getUser } from "@/services/userService";
+import { useEffect, useState } from "react";
+
 
 const formSchema = z.object({
   accessDate: z.date({
@@ -38,6 +40,19 @@ interface NewRequestFormProps {
 
 export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormProps) {
     const { toast } = useToast();
+    const [userName, setUserName] = useState("User");
+    const [userAvatar, setUserAvatar] = useState("");
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const user = await getUser(currentUserId);
+            if (user) {
+                setUserName(user.name);
+                setUserAvatar(user.avatarUrl);
+            }
+        }
+        fetchUser();
+    }, [currentUserId]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -47,11 +62,10 @@ export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormPr
     });
 
     function onSubmit(values: z.infer<typeof formSchema>) {
-        // In a real app, you'd get the user's actual name and avatar.
         onNewRequest({
             userId: currentUserId,
-            userName: "Mike Worker",
-            userAvatar: PlaceHolderImages[4].imageUrl,
+            userName: userName,
+            userAvatar: userAvatar,
             date: format(values.accessDate, "yyyy-MM-dd"),
             reason: values.reason,
         });

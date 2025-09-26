@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
 import { NewRequestForm } from "@/components/access-requests/new-request-form";
-import { getRequestsForUser, getPendingRequests } from "@/services/accessRequestService";
+import { getRequestsForUser, getPendingRequests, addRequest as addRequestService, updateRequestStatus } from "@/services/accessRequestService";
 import type { AccessRequest } from "@/lib/types";
 
 export default function AccessRequestsPage() {
@@ -14,45 +14,28 @@ export default function AccessRequestsPage() {
 
   const [currentUserRequests, setCurrentUserRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
-
-  useEffect(() => {
-    getRequestsForUser(currentUserId).then(setCurrentUserRequests);
-    getPendingRequests().then(setPendingRequests);
+  
+  const fetchRequests = useCallback(async () => {
+      const userRequests = await getRequestsForUser(currentUserId);
+      const pending = await getPendingRequests();
+      setCurrentUserRequests(userRequests);
+      setPendingRequests(pending);
   }, [currentUserId]);
 
-  const addRequest = (newRequest: Omit<AccessRequest, 'id' | 'status' | 'requestedAt'>) => {
-    const request: AccessRequest = {
-        ...newRequest,
-        id: `req_${Date.now()}`,
-        status: 'Pending',
-        requestedAt: new Date().toISOString(),
-    };
-    
-    if (request.userId === currentUserId) {
-        setCurrentUserRequests(prev => [request, ...prev]);
-    }
-    // If a manager creates a request for someone else it wouldn't appear in "My Requests"
-    // but a real implementation should decide where it goes. For now, we assume
-    // users only create requests for themselves.
-    
-    // In a real app, this would also add to a central pool of requests
-    // that feeds the pending requests for managers.
-    // For this simulation, if the current user is not a manager,
-    // we'll add it to the pending list for demonstration.
-    if(isManager) {
-        setPendingRequests(prev => [request, ...prev]);
-    }
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleAddRequest = async (newRequest: Omit<AccessRequest, 'id' | 'status' | 'requestedAt'>) => {
+    await addRequestService(newRequest);
+    await fetchRequests(); // Refresh all requests
   };
 
-  const handleRequestAction = (requestId: string, newStatus: 'Approved' | 'Denied') => {
-      setPendingRequests(prev => prev.filter(r => r.id !== requestId));
-      // In a real app, you would also update the status in the main data source
-      // and it would reflect everywhere. For this mock setup, we just remove it
-      // from the pending list. We could also update its status in the currentUserRequests list
-      // if it happens to be there.
-      setCurrentUserRequests(prev => prev.map(r => r.id === requestId ? {...r, status: newStatus} : r));
+  const handleRequestAction = async (requestId: string, newStatus: 'Approved' | 'Denied') => {
+      await updateRequestStatus(requestId, newStatus);
+      await fetchRequests(); // Refresh all requests
   }
-
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -70,7 +53,7 @@ export default function AccessRequestsPage() {
             <RequestsTable title="My Past Requests" description="A log of your submitted access requests." requests={currentUserRequests} />
         </TabsContent>
         <TabsContent value="new-request">
-            <NewRequestForm currentUserId={currentUserId} onNewRequest={addRequest} />
+            <NewRequestForm currentUserId={currentUserId} onNewRequest={handleAddRequest} />
         </TabsContent>
         {isManager && (
             <TabsContent value="approve">

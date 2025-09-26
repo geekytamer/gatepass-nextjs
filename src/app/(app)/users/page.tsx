@@ -1,6 +1,7 @@
 
 'use client';
 
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -19,6 +20,14 @@ import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Paperclip, ShieldCheck } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function UsersPage() {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
@@ -124,6 +133,34 @@ export default function UsersPage() {
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="font-medium whitespace-nowrap">{user.name}</div>
+                           {user.certificates && user.certificates.length > 0 && (
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                        <Paperclip className="h-4 w-4" />
+                                        <span className="sr-only">View Certificates</span>
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Certificates for {user.name}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                                        {user.certificates.map((cert, index) => (
+                                          <Card key={index}>
+                                            <CardHeader>
+                                              <CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/>{cert.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                               {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[60vh] w-auto mx-auto rounded"/>}
+                                               {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[60vh] rounded border" title={cert.name}/>}
+                                            </CardContent>
+                                          </Card>
+                                        ))}
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                         )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
@@ -156,4 +193,3 @@ export default function UsersPage() {
     </div>
   );
 }
-

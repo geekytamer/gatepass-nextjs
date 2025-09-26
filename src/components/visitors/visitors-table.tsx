@@ -1,6 +1,7 @@
 
 'use client'
 
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -14,8 +15,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Edit, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit, Loader2, Paperclip, ShieldCheck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 interface VisitorsTableProps {
   visitors: User[];
@@ -59,6 +68,34 @@ export function VisitorsTable({ visitors, onDeleteVisitor, isLoading = false }: 
                           <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="font-medium whitespace-nowrap">{user.name}</div>
+                         {user.certificates && user.certificates.length > 0 && (
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                        <Paperclip className="h-4 w-4" />
+                                        <span className="sr-only">View Certificates</span>
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Certificates for {user.name}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                                        {user.certificates.map((cert, index) => (
+                                          <Card key={index}>
+                                            <CardHeader>
+                                              <CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/>{cert.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                               {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[60vh] w-auto mx-auto rounded"/>}
+                                               {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[60vh] rounded border" title={cert.name}/>}
+                                            </CardContent>
+                                          </Card>
+                                        ))}
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                         )}
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{user.company || 'N/A'}</TableCell>

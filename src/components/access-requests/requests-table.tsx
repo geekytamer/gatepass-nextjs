@@ -15,15 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { AccessRequest } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, Paperclip } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Check, X, Loader2 } from 'lucide-react';
 
 
 interface RequestsTableProps {
@@ -97,32 +89,9 @@ export function RequestsTable({ requests, title, description, showActions = fals
                     </TableCell>
                     <TableCell className="hidden md:table-cell max-w-xs truncate">{request.reason}</TableCell>
                     <TableCell>
-                       <div className="flex items-center gap-2">
-                        <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
-                          {request.status}
-                        </Badge>
-                         {request.certificateDataUrl && (
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                                        <Paperclip className="h-4 w-4" />
-                                        <span className="sr-only">View Certificate</span>
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                    <DialogHeader>
-                                        <DialogTitle>Attached Certificate</DialogTitle>
-                                        <DialogDescription>
-                                            Certificate attached for access request by {request.userName} on {format(new Date(request.date), 'MMMM dd, yyyy')}.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="mt-4 rounded-md border p-2">
-                                        <img src={request.certificateDataUrl} alt="Certificate" className="max-h-[70vh] w-auto mx-auto rounded"/>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
-                         )}
-                      </div>
+                      <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
+                        {request.status}
+                      </Badge>
                     </TableCell>
                     {showActions && (
                         <TableCell className="text-right">

@@ -2,7 +2,7 @@
 'use client'
 
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { User, UserRole } from "@/lib/types";
+import type { User, UserRole, Certificate } from "@/lib/types";
+import { FileUp, Paperclip, Trash2, X } from "lucide-react";
+import React from "react";
+
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -19,6 +25,16 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
   role: z.enum(['Visitor', 'Worker']),
   notes: z.string().optional(),
+  certificates: z.array(z.object({
+      name: z.string().min(1, "Certificate name is required."),
+      file: z.any()
+        .refine((file) => file, "File is required.")
+        .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 4MB.`)
+        .refine(
+          (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
+          "Only .jpg, .png, .webp, and .pdf formats are supported."
+        )
+  })).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -29,6 +45,7 @@ interface NewVisitorFormProps {
 
 export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
     const { toast } = useToast();
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -38,15 +55,51 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
             email: "",
             notes: "",
             role: "Visitor",
+            certificates: [],
         },
     });
 
-    function onSubmit(values: FormValues) {
+    const { fields, append, remove } = useFieldArray({
+      control: form.control,
+      name: "certificates",
+    });
+
+    const fileToBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+    };
+
+    async function onSubmit(values: FormValues) {
+        let certificates: Certificate[] = [];
+        if (values.certificates) {
+            try {
+                 certificates = await Promise.all(
+                    values.certificates.map(async (cert) => ({
+                        name: cert.name,
+                        fileDataUrl: await fileToBase64(cert.file),
+                    }))
+                );
+            } catch (error) {
+                 console.error("Error converting files to Base64:", error);
+                 toast({
+                    variant: "destructive",
+                    title: "File Error",
+                    description: "Could not process one or more certificate files.",
+                });
+                return;
+            }
+        }
+
         onNewVisitor({
             name: values.name,
             email: values.email,
             company: values.company,
             role: values.role as UserRole,
+            certificates: certificates,
         });
 
         toast({
@@ -101,6 +154,57 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                 <FormMessage />
                             </FormItem>
                         )} />
+
+                        <div className="space-y-4">
+                          <FormLabel>Certificates (Optional)</FormLabel>
+                            {fields.map((field, index) => (
+                                <div key={field.id} className="flex items-end gap-4 p-4 border rounded-md relative">
+                                    <FormField
+                                        control={form.control}
+                                        name={`certificates.${index}.name`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex-1">
+                                                <FormLabel>Certificate Name</FormLabel>
+                                                <FormControl><Input placeholder="e.g., Safety Training" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name={`certificates.${index}.file`}
+                                        render={({ field: { onChange, value, ...rest }}) => (
+                                            <FormItem>
+                                                <FormLabel>File</FormLabel>
+                                                <FormControl>
+                                                   <Input
+                                                      type="file"
+                                                      onChange={e => onChange(e.target.files?.[0])}
+                                                      className="max-w-[200px]"
+                                                      accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                                                      {...rest}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => append({ name: '', file: null })}
+                            >
+                                <FileUp className="mr-2 h-4 w-4" />
+                                Add Certificate
+                            </Button>
+                            <FormDescription>Attach relevant certificates like safety training or work orders.</FormDescription>
+                        </div>
                     </CardContent>
                     <CardFooter>
                         <Button type="submit">Create Profile</Button>

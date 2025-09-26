@@ -3,6 +3,11 @@ import type { Timestamp } from "firebase/firestore";
 
 export type UserRole = 'Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker';
 
+export type Certificate = {
+  name: string;
+  fileDataUrl: string;
+}
+
 export type User = {
   id: string;
   name: string;
@@ -10,6 +15,7 @@ export type User = {
   role: UserRole;
   avatarUrl: string;
   company?: string;
+  certificates?: Certificate[];
 };
 
 export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';
@@ -23,7 +29,6 @@ export type AccessRequest = {
   reason: string;
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;
-  certificateDataUrl?: string; // Optional field for the certificate
 };
 
 export type GateActivity = {

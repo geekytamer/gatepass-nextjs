@@ -17,19 +17,11 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   company: z.string().min(2, { message: "Company must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['Visitor', 'Contractor', 'Worker', 'Other']),
-  accessLevel: z.enum(['Limited', 'Standard', 'Elevated']),
+  role: z.enum(['Visitor', 'Worker']),
   notes: z.string().optional(),
 });
 
-type FormValues = {
-  name: string;
-  company: string;
-  email: string;
-  role: 'Visitor' | 'Contractor' | 'Worker' | 'Other';
-  accessLevel: 'Limited' | 'Standard' | 'Elevated';
-  notes?: string | undefined;
-}
+type FormValues = z.infer<typeof formSchema>;
 
 interface NewVisitorFormProps {
     onNewVisitor: (visitor: Omit<User, 'id' | 'avatarUrl'>) => void;
@@ -46,7 +38,6 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
             email: "",
             notes: "",
             role: "Visitor",
-            accessLevel: "Limited",
         },
     });
 
@@ -93,22 +84,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
                                     <SelectContent>
                                         <SelectItem value="Visitor">Visitor</SelectItem>
-                                        <SelectItem value="Contractor">Contractor</SelectItem>
                                         <SelectItem value="Worker">Worker</SelectItem>
-                                        <SelectItem value="Other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="accessLevel" render={({ field }) => (
-                                <FormItem><FormLabel>Access Level</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select an access level" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Limited">Limited</SelectItem>
-                                        <SelectItem value="Standard">Standard</SelectItem>
-                                        <SelectItem value="Elevated">Elevated</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -118,7 +94,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
 
                         <FormField control={form.control} name="notes" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Notes</FormLabel>
+                                <FormLabel>Notes (Optional)</FormLabel>
                                 <FormControl>
                                     <Textarea placeholder="e.g., Attending the 2pm marketing meeting in room 301." {...field} />
                                 </FormControl>

@@ -19,6 +19,7 @@ export default function AccessRequestsPage() {
   const [currentUserRequests, setCurrentUserRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPending, setLoadingPending] = useState(true);
 
   useEffect(() => {
     if (!firestore) return;
@@ -32,15 +33,23 @@ export default function AccessRequestsPage() {
       const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
       setCurrentUserRequests(userRequests);
       setLoading(false);
+    }, (error) => {
+        console.error("Error fetching user requests:", error);
+        setLoading(false);
     });
 
     // Listener for pending requests (for managers)
     let unsubscribePendingRequests = () => {};
     if (isManager) {
+      setLoadingPending(true);
       const pendingRequestsQuery = query(requestsCollection, where("status", "==", "Pending"));
       unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
         const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
         setPendingRequests(pending);
+        setLoadingPending(false);
+      }, (error) => {
+          console.error("Error fetching pending requests:", error);
+          setLoadingPending(false);
       });
     }
 
@@ -61,7 +70,7 @@ export default function AccessRequestsPage() {
             status: 'Pending',
             requestedAt: serverTimestamp()
         });
-        toast({ title: "Request Submitted", description: "Your access request has been sent for approval." });
+        // Toast is handled in the form component
     } catch (error) {
         console.error("Error adding request: ", error);
         toast({ variant: "destructive", title: "Submission Error", description: "Could not submit your request." });
@@ -103,7 +112,7 @@ export default function AccessRequestsPage() {
         </TabsContent>
         {isManager && (
             <TabsContent value="approve">
-                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onAction={handleRequestAction} isLoading={loading} />
+                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onAction={handleRequestAction} isLoading={loadingPending} />
             </TabsContent>
         )}
       </Tabs>

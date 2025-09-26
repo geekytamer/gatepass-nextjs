@@ -15,7 +15,7 @@ export type User = {
 export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';
 
 export type AccessRequest = {
-  id: string;
+  id:string;
   userId: string;
   userName: string;
   userAvatar: string;
@@ -23,6 +23,7 @@ export type AccessRequest = {
   reason: string;
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;
+  certificateDataUrl?: string; // Optional field for the certificate
 };
 
 export type GateActivity = {

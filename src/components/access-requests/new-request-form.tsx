@@ -16,8 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { AccessRequest } from "@/lib/types";
-import { getUser } from "@/services/userService";
+import type { AccessRequest, User } from "@/lib/types";
+import { useFirestore } from "@/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 
 
@@ -42,17 +43,20 @@ export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormPr
     const { toast } = useToast();
     const [userName, setUserName] = useState("User");
     const [userAvatar, setUserAvatar] = useState("");
+    const firestore = useFirestore();
 
     useEffect(() => {
-        const fetchUser = async () => {
-            const user = await getUser(currentUserId);
-            if (user) {
+        if (!firestore) return;
+        const userRef = doc(firestore, 'users', currentUserId);
+        const unsubscribe = onSnapshot(userRef, (docSnap) => {
+             if (docSnap.exists()) {
+                const user = docSnap.data() as User;
                 setUserName(user.name);
                 setUserAvatar(user.avatarUrl);
             }
-        }
-        fetchUser();
-    }, [currentUserId]);
+        });
+        return () => unsubscribe();
+    }, [currentUserId, firestore]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),

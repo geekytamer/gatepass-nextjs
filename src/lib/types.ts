@@ -1,3 +1,6 @@
+
+import type { Timestamp } from "firebase/firestore";
+
 export type UserRole = 'Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker';
 
 export type User = {
@@ -19,7 +22,7 @@ export type AccessRequest = {
   date: string;
   reason: string;
   status: AccessRequestStatus;
-  requestedAt: string;
+  requestedAt: Timestamp | string;
   documentation?: string[]; // URLs to documents for workers
 };
 
@@ -28,7 +31,7 @@ export type GateActivity = {
   userId: string;
   userName: string;
   userAvatar: string;
-  timestamp: string;
+  timestamp: string; // Should be ISO string
   type: 'Check-in' | 'Check-out';
   gate: string;
 };

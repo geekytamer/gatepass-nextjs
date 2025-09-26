@@ -15,8 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { AccessRequest } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Check, X, Loader2 } from 'lucide-react';
 
 interface RequestsTableProps {
   requests: AccessRequest[];
@@ -24,6 +23,7 @@ interface RequestsTableProps {
   description: string;
   showActions?: boolean;
   onAction?: (requestId: string, status: 'Approved' | 'Denied') => void;
+  isLoading?: boolean;
 }
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline'} = {
@@ -38,16 +38,13 @@ const statusColorClasses = {
   Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
 }
 
-export function RequestsTable({ requests, title, description, showActions = false, onAction }: RequestsTableProps) {
-  const { toast } = useToast();
+export function RequestsTable({ requests, title, description, showActions = false, onAction, isLoading = false }: RequestsTableProps) {
 
   const handleAction = (requestId: string, status: 'Approved' | 'Denied') => {
     onAction?.(requestId, status);
-    toast({
-        title: `Request ${status}`,
-        description: `The request has been ${status.toLowerCase()}.`
-    });
   }
+
+  const colSpan = showActions ? 5 : 4;
 
   return (
     <Card>
@@ -68,37 +65,46 @@ export function RequestsTable({ requests, title, description, showActions = fals
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={request.userAvatar} alt={request.userName} />
-                        <AvatarFallback>{request.userName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="font-medium whitespace-nowrap">{request.userName}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">{format(new Date(request.date), 'MMMM dd, yyyy')}</TableCell>
-                  <TableCell className="hidden md:table-cell max-w-xs truncate">{request.reason}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
-                      {request.status}
-                    </Badge>
-                  </TableCell>
-                  {showActions && (
-                      <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Approved')}><Check className="h-4 w-4 text-green-600" /></Button>
-                              <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Denied')}><X className="h-4 w-4 text-red-600" /></Button>
-                          </div>
-                      </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {requests.length === 0 && (
+              {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={showActions ? 5 : 4} className="h-24 text-center">
+                  <TableCell colSpan={colSpan} className="h-24 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : requests.length > 0 ? (
+                requests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={request.userAvatar} alt={request.userName} />
+                          <AvatarFallback>{request.userName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="font-medium whitespace-nowrap">{request.userName}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {request.date ? format(new Date(request.date), 'MMMM dd, yyyy') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell max-w-xs truncate">{request.reason}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
+                        {request.status}
+                      </Badge>
+                    </TableCell>
+                    {showActions && (
+                        <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Approved')}><Check className="h-4 w-4 text-green-600" /></Button>
+                                <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Denied')}><X className="h-4 w-4 text-red-600" /></Button>
+                            </div>
+                        </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                    <TableCell colSpan={colSpan} className="h-24 text-center">
                         No requests found.
                     </TableCell>
                 </TableRow>

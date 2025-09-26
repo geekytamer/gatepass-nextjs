@@ -1,40 +1,74 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, where, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisitorsTable } from "@/components/visitors/visitors-table";
 import { NewVisitorForm } from "@/components/visitors/new-visitor-form";
-import { getVisitors, addUser, deleteUser as deleteUserService } from "@/services/userService";
 import type { User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function VisitorsPage() {
   const [visitors, setVisitors] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  const fetchVisitors = useCallback(async () => {
-    const visitorsData = await getVisitors();
-    setVisitors(visitorsData);
-  }, []);
+  const firestore = useFirestore();
 
   useEffect(() => {
-    fetchVisitors();
-  }, [fetchVisitors]);
+    if (!firestore) return;
+    setLoading(true);
+
+    const usersCollection = collection(firestore, "users");
+    const visitorsQuery = query(usersCollection, where("role", "in", ["Visitor", "Worker"]));
+
+    const unsubscribe = onSnapshot(visitorsQuery, (snapshot) => {
+        const visitorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        setVisitors(visitorsData);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore]);
 
   const addVisitor = async (newVisitor: Omit<User, 'id' | 'avatarUrl'>) => {
-    await addUser(newVisitor);
-    await fetchVisitors(); // Re-fetch to get the new list with ID and avatar
+    if (!firestore) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+        return;
+    }
+    try {
+        await addDoc(collection(firestore, "users"), {
+            ...newVisitor,
+            avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
+            createdAt: serverTimestamp()
+        });
+         toast({ title: "Profile Created", description: `A new profile for ${newVisitor.name} has been created.` });
+    } catch (error) {
+        console.error("Error adding visitor: ", error);
+        toast({ variant: "destructive", title: "Creation Error", description: "Could not create visitor profile." });
+    }
   };
 
   const deleteVisitor = async (visitorId: string) => {
-    await deleteUserService(visitorId);
-    await fetchVisitors();
-    toast({
-        title: 'Visitor Deleted',
-        description: 'The visitor profile has been removed.',
-        variant: 'destructive',
-    });
+    if (!firestore) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+        return;
+    }
+    try {
+        await deleteDoc(doc(firestore, "users", visitorId));
+        toast({
+            title: 'Visitor Deleted',
+            description: 'The visitor profile has been removed.',
+        });
+    } catch (error) {
+        console.error("Error deleting visitor:", error);
+        toast({
+            title: 'Deletion Failed',
+            description: 'Could not remove the visitor profile.',
+            variant: 'destructive',
+        });
+    }
   }
 
   return (
@@ -49,7 +83,7 @@ export default function VisitorsPage() {
           <TabsTrigger value="new-visitor">New Visitor Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="visitor-list">
-            <VisitorsTable visitors={visitors} onDeleteVisitor={deleteVisitor} />
+            <VisitorsTable visitors={visitors} onDeleteVisitor={deleteVisitor} isLoading={loading}/>
         </TabsContent>
         <TabsContent value="new-visitor">
             <NewVisitorForm onNewVisitor={addVisitor} />

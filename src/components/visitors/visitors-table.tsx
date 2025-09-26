@@ -14,15 +14,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Edit } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface VisitorsTableProps {
   visitors: User[];
   onDeleteVisitor: (visitorId: string) => void;
+  isLoading?: boolean;
 }
 
-export function VisitorsTable({ visitors, onDeleteVisitor }: VisitorsTableProps) {
+export function VisitorsTable({ visitors, onDeleteVisitor, isLoading = false }: VisitorsTableProps) {
   return (
     <Card>
       <CardHeader>
@@ -42,49 +43,56 @@ export function VisitorsTable({ visitors, onDeleteVisitor }: VisitorsTableProps)
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visitors.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.avatarUrl} alt={user.name} />
-                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="font-medium whitespace-nowrap">{user.name}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">{user.company || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === 'Visitor' ? 'secondary' : 'outline'}>{user.role}</Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">{user.email}</TableCell>
-                  <TableCell className="text-right">
-                      <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Open actions</span>
-                              </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                <span>Edit Profile</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => onDeleteVisitor(user.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Delete Profile</span>
-                              </DropdownMenuItem>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {visitors.length === 0 && (
+              {isLoading ? (
+                  <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                          <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                      </TableCell>
+                  </TableRow>
+              ) : visitors.length > 0 ? (
+                visitors.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={user.avatarUrl} alt={user.name} />
+                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="font-medium whitespace-nowrap">{user.name}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{user.company || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'Visitor' ? 'secondary' : 'outline'}>{user.role}</Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{user.email}</TableCell>
+                    <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Open actions</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  <span>Edit Profile</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => onDeleteVisitor(user.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>Delete Profile</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
                         No visitors found.

@@ -1,3 +1,9 @@
+
+'use client';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+
 import {
   Table,
   TableBody,
@@ -9,17 +15,39 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { getRecentGateActivity } from '@/services/gateActivityService';
+import type { GateActivity } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export async function RecentActivity() {
-  const recentActivity = await getRecentGateActivity(5);
+export function RecentActivity() {
+    const [recentActivity, setRecentActivity] = useState<GateActivity[]>([]);
+    const [loading, setLoading] = useState(true);
+    const firestore = useFirestore();
+
+    useEffect(() => {
+        if (!firestore) return;
+        setLoading(true);
+        const activityQuery = query(collection(firestore, "gateActivity"), orderBy("timestamp", "desc"), limit(5));
+
+        const unsubscribe = onSnapshot(activityQuery, (snapshot) => {
+            const activities = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                timestamp: doc.data().timestamp?.toDate().toISOString()
+            } as GateActivity));
+            setRecentActivity(activities);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [firestore]);
+
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Recent Gate Activity</CardTitle>
-        <CardDescription>A log of the latest check-ins and check-outs.</CardDescription>
+        <CardDescription>A real-time log of the latest check-ins and check-outs.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -32,28 +60,46 @@ export async function RecentActivity() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentActivity.map((activity) => (
-              <TableRow key={activity.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={activity.userAvatar} alt={activity.userName} />
-                      <AvatarFallback>{activity.userName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="font-medium">{activity.userName}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{activity.gate}</TableCell>
-                <TableCell>
-                   <Badge variant={activity.type === 'Check-in' ? 'default' : 'secondary'} className={activity.type === 'Check-in' ? 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30' : 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30'}>
-                    {activity.type}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
-                </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+                 [...Array(5)].map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-5 w-24" /></div></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-24" /></TableCell>
+                    </TableRow>
+                ))
+            ) : (
+                recentActivity.map((activity) => (
+                <TableRow key={activity.id}>
+                    <TableCell>
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                        <AvatarImage src={activity.userAvatar} alt={activity.userName} />
+                        <AvatarFallback>{activity.userName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="font-medium">{activity.userName}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{activity.gate}</TableCell>
+                    <TableCell>
+                    <Badge variant={activity.type === 'Check-in' ? 'default' : 'secondary'} className={activity.type === 'Check-in' ? 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30' : 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30'}>
+                        {activity.type}
+                    </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                    {activity.timestamp ? formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true }) : 'Just now'}
+                    </TableCell>
+                </TableRow>
+                ))
+            )}
+             {!loading && recentActivity.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                        No activity recorded yet.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

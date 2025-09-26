@@ -18,8 +18,8 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getUser, getUsers } from '@/services/userService';
-import { addGateActivity } from '@/services/gateActivityService';
+import { useFirestore } from '@/firebase';
+import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { User as UserType } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 
@@ -32,12 +32,12 @@ export default function ScanPage() {
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [isScanning, setIsScanning] = useState(false);
+    const firestore = useFirestore();
     
     const restartScanner = useCallback(() => {
-        if (scannerRef.current && scannerRef.current.isScanning) {
+        if (!firestore || (scannerRef.current && scannerRef.current.isScanning) || hasCameraPermission === false) {
             return;
         }
-         if (hasCameraPermission === false) return;
 
         const start = async () => {
             setIsScanning(true);
@@ -46,9 +46,7 @@ export default function ScanPage() {
                 if (devices && devices.length) {
                     setHasCameraPermission(true);
 
-                    const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, {
-                        verbose: false,
-                    });
+                    const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, { verbose: false });
                     scannerRef.current = scanner;
 
                     const onScanSuccess = async (decodedText: string) => {
@@ -59,9 +57,11 @@ export default function ScanPage() {
                         }
                         
                         try {
-                            const user = await getUser(decodedText);
-                            if (user) {
-                                setScannedUser(user);
+                            const userRef = doc(firestore, "users", decodedText);
+                            const userSnap = await getDoc(userRef);
+
+                            if (userSnap.exists()) {
+                                setScannedUser({ id: userSnap.id, ...userSnap.data() } as UserType);
                             } else {
                                 toast({ variant: 'destructive', title: 'Scan Error', description: `User with ID "${decodedText}" not found.`});
                                 restartScanner();
@@ -81,8 +81,10 @@ export default function ScanPage() {
                     ).catch(err => {
                         console.error("Scanner start error:", err);
                         setIsScanning(false);
-                        // No need to set hasCameraPermission to false here, as it might be a temporary issue
                     });
+                } else {
+                   setHasCameraPermission(false);
+                   setIsScanning(false);
                 }
             } catch (err) {
                  console.error('Camera initialization error:', err);
@@ -92,22 +94,10 @@ export default function ScanPage() {
         };
 
         start();
-    }, [hasCameraPermission, toast]);
+    }, [firestore, hasCameraPermission, toast]);
 
     useEffect(() => {
-        // Initial check for camera permission and starting the scanner
-        Html5Qrcode.getCameras()
-            .then(devices => {
-                if (devices && devices.length) {
-                    setHasCameraPermission(true);
-                    restartScanner();
-                } else {
-                    setHasCameraPermission(false);
-                }
-            })
-            .catch(() => {
-                setHasCameraPermission(false);
-            });
+        restartScanner();
         
         return () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
@@ -124,12 +114,14 @@ export default function ScanPage() {
     }
     
     const handleSimulateScan = async () => {
+        if (!firestore) return;
         if (scannerRef.current && scannerRef.current.isScanning) {
             await scannerRef.current.stop();
             setIsScanning(false);
         }
         try {
-            const users = await getUsers();
+            const usersSnapshot = await getDocs(collection(firestore, "users"));
+            const users = usersSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()})) as UserType[];
             const randomUser = users[Math.floor(Math.random() * users.length)];
             setScannedUser(randomUser);
         } catch (e) {
@@ -140,9 +132,22 @@ export default function ScanPage() {
     }
 
     const handleActivity = async (type: 'Check-in' | 'Check-out') => {
-        if (!scannedUser) return;
-        await addGateActivity(scannedUser.id, type, 'Main Gate');
-        toast({ title: `${type} Successful`, description: `${scannedUser?.name} has been checked ${type.toLowerCase()}.` });
+        if (!scannedUser || !firestore) return;
+
+        try {
+            await addDoc(collection(firestore, "gateActivity"), {
+                userId: scannedUser.id,
+                userName: scannedUser.name,
+                userAvatar: scannedUser.avatarUrl,
+                timestamp: serverTimestamp(),
+                type: type,
+                gate: 'Main Gate',
+            });
+            toast({ title: `${type} Successful`, description: `${scannedUser?.name} has been checked ${type.toLowerCase()}.` });
+        } catch(e) {
+             console.error("Error adding gate activity:", e);
+             toast({ variant: 'destructive', title: 'Error', description: `Failed to record ${type}.`});
+        }
         handleClose();
     }
 
@@ -235,3 +240,4 @@ export default function ScanPage() {
     </div>
   );
 }
+

@@ -23,7 +23,6 @@ export type AccessRequest = {
   reason: string;
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;
-  documentation?: string[]; // URLs to documents for workers
 };
 
 export type GateActivity = {

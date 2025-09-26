@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, UploadCloud } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ const formSchema = z.object({
   }).max(200, {
       message: "Reason must not be longer than 200 characters.",
   }),
-  documentation: z.instanceof(File).optional(),
 });
 
 interface NewRequestFormProps {
@@ -85,7 +84,7 @@ export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormPr
         <Card>
             <CardHeader>
                 <CardTitle>Submit a New Access Request</CardTitle>
-                <CardDescription>Fill out the details below to request access. Workers must upload required documentation.</CardDescription>
+                <CardDescription>Fill out the details below to request access for a specific date.</CardDescription>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -142,25 +141,6 @@ export function NewRequestForm({ currentUserId, onNewRequest }: NewRequestFormPr
                                     </FormControl>
                                     <FormDescription>
                                         Please provide a clear and concise reason for your visit.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="documentation"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Upload Documentation (for Workers)</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                             <UploadCloud className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                            <Input type="file" className="pl-10" onChange={(e) => field.onChange(e.target.files?.[0])} />
-                                        </div>
-                                    </FormControl>
-                                     <FormDescription>
-                                        Upload work orders, safety certifications, etc.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>

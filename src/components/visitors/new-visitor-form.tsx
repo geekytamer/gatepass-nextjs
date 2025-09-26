@@ -94,4 +94,43 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                     <SelectContent>
                                         <SelectItem value="Visitor">Visitor</SelectItem>
                                         <SelectItem value="Contractor">Contractor</SelectItem>
-                                        <SelectItem value="Worker">Worker</
+                                        <SelectItem value="Worker">Worker</SelectItem>
+                                        <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="accessLevel" render={({ field }) => (
+                                <FormItem><FormLabel>Access Level</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select an access level" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Limited">Limited</SelectItem>
+                                        <SelectItem value="Standard">Standard</SelectItem>
+                                        <SelectItem value="Elevated">Elevated</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+
+                        <FormField control={form.control} name="notes" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Notes</FormLabel>
+                                <FormControl>
+                                    <Textarea placeholder="e.g., Attending the 2pm marketing meeting in room 301." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit">Create Profile</Button>
+                    </CardFooter>
+                </form>
+            </Form>
+        </Card>
+    )
+}

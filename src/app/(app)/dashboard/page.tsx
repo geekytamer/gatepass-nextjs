@@ -1,3 +1,4 @@
+
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { ActivityChart } from '@/components/dashboard/activity-chart';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
@@ -43,3 +44,6 @@ function StatsCardsSkeleton() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}

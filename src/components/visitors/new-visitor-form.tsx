@@ -6,14 +6,15 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, Certificate } from "@/lib/types";
-import { FileUp, Paperclip, Trash2, X } from "lucide-react";
+import { FileUp, Trash2 } from "lucide-react";
 import React from "react";
+import { certificateTypes } from "@/lib/certificate-types";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
@@ -26,7 +27,7 @@ const formSchema = z.object({
   role: z.enum(['Visitor', 'Worker']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
-      name: z.string().min(1, "Certificate name is required."),
+      name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
       file: z.any()
         .refine((file) => file, "File is required.")
         .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 4MB.`)
@@ -45,7 +46,6 @@ interface NewVisitorFormProps {
 
 export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
     const { toast } = useToast();
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -165,7 +165,14 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                         render={({ field }) => (
                                             <FormItem className="flex-1">
                                                 <FormLabel>Certificate Name</FormLabel>
-                                                <FormControl><Input placeholder="e.g., Safety Training" {...field} /></FormControl>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select certificate type" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {certificateTypes.map(type => (
+                                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

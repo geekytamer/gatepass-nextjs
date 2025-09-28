@@ -31,6 +31,7 @@ export type AccessRequest = {
   requestedAt: Timestamp | string;
   siteId: string;
   siteName: string;
+  managerIds?: string[];
 };
 
 export type GateActivity = {

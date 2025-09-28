@@ -62,32 +62,14 @@ export default function ScanPage() {
 
     const firestore = useFirestore();
 
-    useEffect(() => {
-        if (!firestore || !currentSecurityUser.assignedSiteId) {
-            setLoadingSite(false);
-            return;
-        };
-
-        setLoadingSite(true);
-        const siteDocRef = doc(firestore, "sites", currentSecurityUser.assignedSiteId);
-        const siteUnsub = onSnapshot(siteDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setAssignedSite({ id: docSnap.id, ...docSnap.data() } as Site);
-            } else {
-                setAssignedSite(null);
-                toast({ variant: 'destructive', title: 'Site Error', description: 'Assigned site not found.' });
-            }
-            setLoadingSite(false);
-        });
-
-        return () => siteUnsub();
-    }, [firestore, currentSecurityUser.assignedSiteId, toast]);
-
     const stopScanner = useCallback(() => {
         if (scannerRef.current && scannerRef.current.isScanning) {
-            scannerRef.current.stop().catch(err => console.error("Failed to stop scanner", err));
+            scannerRef.current.stop().then(() => {
+                setIsScanning(false);
+            }).catch(err => console.error("Failed to stop scanner", err));
+        } else {
+             setIsScanning(false);
         }
-        setIsScanning(false);
     }, []);
 
     const handleScanSuccess = useCallback(async (decodedText: string) => {
@@ -136,46 +118,79 @@ export default function ScanPage() {
         }
     }, [firestore, assignedSite, stopScanner, toast]);
 
-    const restartScanner = useCallback(() => {
-        if (!firestore || isScanning || hasCameraPermission === false || !assignedSite) {
+    
+    const startScanner = useCallback(() => {
+        if (isScanning || hasCameraPermission === false || !assignedSite || !firestore) {
             return;
         }
-        const start = async () => {
-            setIsScanning(true);
-            setScanState('scanning');
-            try {
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length) {
-                    setHasCameraPermission(true);
-                    const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, { verbose: false });
-                    scannerRef.current = scanner;
-                    
-                    scanner.start(
-                        { facingMode: "environment" },
-                        { fps: 5, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
-                        handleScanSuccess,
-                        () => {}
-                    ).catch(err => {
-                        console.error("Scanner start error:", err);
-                        setIsScanning(false);
-                    });
-                } else {
-                   setHasCameraPermission(false);
-                   setIsScanning(false);
-                }
-            } catch (err) {
-                 console.error('Camera initialization error:', err);
-                 setHasCameraPermission(false);
-                 setIsScanning(false);
-            }
-        };
-        start();
-    }, [firestore, hasCameraPermission, isScanning, assignedSite, handleScanSuccess]);
+
+        const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, { verbose: false });
+        scannerRef.current = scanner;
+        setIsScanning(true);
+        setScanState('scanning');
+
+        scanner.start(
+            { facingMode: "environment" },
+            { fps: 5, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
+            handleScanSuccess,
+            () => {} // qrCodeErrorCallback is optional
+        ).catch(err => {
+            console.error("Scanner start error:", err);
+            setIsScanning(false);
+            setHasCameraPermission(false);
+        });
+
+    }, [isScanning, hasCameraPermission, assignedSite, firestore, handleScanSuccess]);
+
 
     useEffect(() => {
-        restartScanner();
-        return () => stopScanner();
-    }, [restartScanner, stopScanner]);
+        // Request camera permission on mount
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length) {
+                setHasCameraPermission(true);
+            } else {
+                setHasCameraPermission(false);
+            }
+        }).catch(() => {
+            setHasCameraPermission(false);
+        });
+    }, []);
+
+    useEffect(() => {
+        // Start scanner when permission and site are ready
+        if (hasCameraPermission && assignedSite && !isScanning) {
+            startScanner();
+        }
+
+        // Cleanup on unmount
+        return () => {
+            if (scannerRef.current && scannerRef.current.isScanning) {
+                stopScanner();
+            }
+        };
+    }, [hasCameraPermission, assignedSite, isScanning, startScanner, stopScanner]);
+
+
+    useEffect(() => {
+        if (!firestore || !currentSecurityUser.assignedSiteId) {
+            setLoadingSite(false);
+            return;
+        };
+
+        setLoadingSite(true);
+        const siteDocRef = doc(firestore, "sites", currentSecurityUser.assignedSiteId);
+        const siteUnsub = onSnapshot(siteDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setAssignedSite({ id: docSnap.id, ...docSnap.data() } as Site);
+            } else {
+                setAssignedSite(null);
+                toast({ variant: 'destructive', title: 'Site Error', description: 'Assigned site not found.' });
+            }
+            setLoadingSite(false);
+        });
+
+        return () => siteUnsub();
+    }, [firestore, currentSecurityUser.assignedSiteId, toast]);
 
     const handleIdCardSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -241,7 +256,7 @@ export default function ScanPage() {
         if (idCardInputRef.current) {
             idCardInputRef.current.value = '';
         }
-        restartScanner();
+        startScanner();
     }
     
     const handleActivity = async (type: 'Check-in' | 'Check-out') => {
@@ -424,3 +439,5 @@ export default function ScanPage() {
     </div>
   );
 }
+
+    

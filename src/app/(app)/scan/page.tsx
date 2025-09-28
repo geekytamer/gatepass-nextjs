@@ -31,7 +31,7 @@ import Image from 'next/image';
 const QR_SCANNER_ELEMENT_ID = 'qr-scanner';
 
 type ScanState = 'scanning' | 'user-found' | 'no-user' | 'visitor-register';
-type AccessStatus = 'approved' | 'denied-no-request' | 'denied-expired-request';
+type AccessStatus = 'approved' | 'denied-no-request' | 'denied-access-issue';
 
 export default function ScanPage() {
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
@@ -76,7 +76,7 @@ export default function ScanPage() {
     }, []);
 
     const handleScanSuccess = useCallback(async (decodedText: string) => {
-        if (!firestore) return;
+        if (!firestore || !selectedSiteId) return;
         stopScanner();
         
         try {
@@ -87,8 +87,8 @@ export default function ScanPage() {
                 const user = { id: userSnap.id, ...userSnap.data() } as UserType;
                 setScannedUser(user);
 
-                if (user.role === 'Visitor' || user.role === 'Worker') {
-                    // Check for access request
+                if (user.role === 'Worker') {
+                    // For workers, check for an approved access request for today
                     const todayStr = format(new Date(), "yyyy-MM-dd");
                     const requestsQuery = query(
                         collection(firestore, "accessRequests"),
@@ -102,28 +102,16 @@ export default function ScanPage() {
                     if (!requestsSnap.empty) {
                         setAccessStatus('approved');
                     } else {
-                        // Check if an expired request exists for today
-                         const expiredRequestsQuery = query(
-                            collection(firestore, "accessRequests"),
-                            where("userId", "==", user.id),
-                            where("siteId", "==", selectedSiteId),
-                            where("date", "==", todayStr)
-                        );
-                        const expiredSnap = await getDocs(expiredRequestsQuery);
-                        if (!expiredSnap.empty) {
-                             setAccessStatus('denied-expired-request');
-                        } else {
-                             setAccessStatus('denied-no-request');
-                        }
+                        setAccessStatus('denied-no-request');
                     }
                 } else {
-                    // Admin, Manager, Security have implicit access
+                    // Admin, Manager, Security have implicit access. Visitors registered on the spot also get access.
                     setAccessStatus('approved');
                 }
                 setScanState('user-found');
 
             } else {
-                toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${decodedText}" not found. Register as new visitor?`});
+                toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${decodedText}" not found. Register as new visitor.`});
                 setScanState('no-user');
             }
         } catch (e) {
@@ -187,12 +175,13 @@ export default function ScanPage() {
       }
     };
 
-    const handleRegisterVisitor = async () => {
-        if (!firestore || !visitorName || !visitorIdCardImage) {
-            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide name and ID card image.' });
+    const handleRegisterVisitorAndCheckIn = async () => {
+        if (!firestore || !visitorName || !visitorIdCardImage || !selectedSiteId) {
+            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide name, ID card image, and select a site.' });
             return;
         }
         try {
+            // 1. Create the new visitor profile
             const newUser = {
                 name: visitorName,
                 company: visitorCompany,
@@ -203,12 +192,23 @@ export default function ScanPage() {
                 createdAt: serverTimestamp()
             };
             const docRef = await addDoc(collection(firestore, "users"), newUser);
-            const createdUser: UserType = { ...newUser, id: docRef.id, certificates: [] };
             
             toast({ title: 'Visitor Registered', description: `${visitorName} has been created.` });
-            setScannedUser(createdUser);
-            setAccessStatus('approved'); // Newly registered visitors get access for today
-            setScanState('user-found');
+            
+            // 2. Log the check-in activity immediately
+            await addDoc(collection(firestore, "gateActivity"), {
+                userId: docRef.id,
+                userName: newUser.name,
+                userAvatar: newUser.avatarUrl,
+                timestamp: serverTimestamp(),
+                type: 'Check-in',
+                gate: `${selectedSite?.name} Main Gate`,
+                siteId: selectedSiteId,
+            });
+            toast({ title: `Check-in Successful`, description: `${newUser.name} has been checked in.` });
+
+            // 3. Close the dialog and reset the state
+            handleClose();
 
         } catch (error) {
             console.error("Error registering visitor:", error);
@@ -223,6 +223,9 @@ export default function ScanPage() {
         setVisitorName('');
         setVisitorCompany('');
         setVisitorIdCardImage(null);
+        if (idCardInputRef.current) {
+            idCardInputRef.current.value = '';
+        }
         restartScanner();
     }
     
@@ -355,16 +358,7 @@ export default function ScanPage() {
                                         <AlertTriangle className="h-4 w-4" />
                                         <AlertTitle>No Access Request Found</AlertTitle>
                                         <AlertDescription>
-                                            There is no approved access request for this user for today at this site.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                                 {accessStatus === 'denied-expired-request' && (
-                                    <Alert variant="destructive">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle>Access Request Issue</AlertTitle>
-                                        <AlertDescription>
-                                            An access request was found, but it is not approved or has been denied.
+                                            This worker does not have an approved access request for today at this site.
                                         </AlertDescription>
                                     </Alert>
                                 )}
@@ -395,14 +389,14 @@ export default function ScanPage() {
                         <Input type="file" accept="image/*" capture="environment" className="hidden" ref={idCardInputRef} onChange={handleIdCardSelect} />
                         <Button variant="outline" onClick={() => idCardInputRef.current?.click()}>
                            <CameraIcon className="mr-2 h-4 w-4"/>
-                           {visitorIdCardImage ? 'Recapture' : 'Capture'} ID Card
+                           {visitorIdCardImage ? 'Recapture ID Card' : 'Capture ID Card'}
                         </Button>
                         {visitorIdCardImage && <Image src={visitorIdCardImage} alt="ID card preview" width={200} height={125} className="rounded-md border object-contain mx-auto" />}
                      </div>
                 )}
                  {scanState === 'visitor-register' && (
                      <DialogFooter>
-                        <Button onClick={handleRegisterVisitor} disabled={!visitorName || !visitorIdCardImage}>Register and Check-in</Button>
+                        <Button onClick={handleRegisterVisitorAndCheckIn} disabled={!visitorName || !visitorIdCardImage}>Register and Check-in</Button>
                     </DialogFooter>
                  )}
 
@@ -416,3 +410,5 @@ export default function ScanPage() {
     </div>
   );
 }
+
+    

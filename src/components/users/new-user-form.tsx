@@ -10,17 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType } from "@/lib/types";
-import { CalendarIcon, FileText, Trash2, Camera } from "lucide-react";
-import React, { useEffect, useState, useRef } from "react";
+import { CalendarIcon, FileText, Trash2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "../ui/calendar";
-import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
-
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -32,13 +29,12 @@ const formSchema = z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
       expiryDate: z.date().optional(),
   })).optional(),
-  idCardImageUrl: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewUserFormProps {
-    onNewUser: (user: Omit<User, 'id' | 'avatarUrl'>) => void;
+    onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'idCardImageUrl'>) => void;
 }
 
 export function NewUserForm({ onNewUser }: NewUserFormProps) {
@@ -46,8 +42,6 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
     const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
-    const { toast } = useToast();
-    const idCardInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!firestore) return;
@@ -67,9 +61,8 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
             company: "",
             email: "",
             notes: "",
-            role: "Visitor",
+            role: "Worker",
             certificates: [],
-            idCardImageUrl: "",
         },
     });
 
@@ -77,28 +70,6 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
       control: form.control,
       name: "certificates",
     });
-    
-    const idCardImage = form.watch("idCardImageUrl");
-
-    const handleIdCardSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (file) {
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            toast({
-                variant: 'destructive',
-                title: 'File Too Large',
-                description: 'Please select an ID card image smaller than 2MB.',
-            });
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          form.setValue("idCardImageUrl", e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
 
     async function onSubmit(values: FormValues) {
         const certificates: Certificate[] = values.certificates ? values.certificates.map(cert => ({
@@ -112,7 +83,6 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
             company: values.company,
             role: values.role as UserRole,
             certificates: certificates,
-            idCardImageUrl: values.idCardImageUrl,
         });
 
         form.reset();
@@ -159,38 +129,6 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
                             <FormMessage />
                         </FormItem>
                     )} />
-
-                    <div className="space-y-2">
-                        <FormLabel>ID Card Image (Optional)</FormLabel>
-                        <FormControl>
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={idCardInputRef}
-                                onChange={handleIdCardSelect}
-                            />
-                        </FormControl>
-                        <div className="flex items-center gap-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => idCardInputRef.current?.click()}
-                            >
-                                <Camera className="mr-2 h-4 w-4" />
-                                {idCardImage ? 'Change' : 'Capture'} ID Image
-                            </Button>
-                            {idCardImage && (
-                                <div className="relative w-48 h-28 rounded border p-1">
-                                    <Image src={idCardImage} alt="ID Card Preview" layout="fill" objectFit="contain" />
-                                     <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 bg-background rounded-full" onClick={() => form.setValue('idCardImageUrl', '')}>
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                     </Button>
-                                </div>
-                            )}
-                        </div>
-                         <FormDescription>Capture or upload a picture of the user's identification card.</FormDescription>
-                    </div>
 
                     <div className="space-y-4">
                       <FormLabel>Certificates (Optional)</FormLabel>
@@ -276,3 +214,5 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
         </Form>
     )
 }
+
+    

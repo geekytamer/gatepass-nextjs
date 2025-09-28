@@ -24,8 +24,15 @@ import type { User as UserType, Site } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 const QR_SCANNER_ELEMENT_ID = 'qr-scanner';
+
+type CertificateStatus = {
+    hasAll: boolean;
+    missing: string[];
+    expired: string[];
+};
 
 export default function ScanPage() {
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
@@ -172,21 +179,39 @@ export default function ScanPage() {
         handleClose();
     }
 
-    const checkCertificates = () => {
-        if (!scannedUser || !selectedSite) return { hasAll: true, missing: [] };
+    const checkCertificates = (): CertificateStatus => {
+        if (!scannedUser || !selectedSite || !selectedSite.requiredCertificates.length) {
+            return { hasAll: true, missing: [], expired: [] };
+        }
 
-        const userCertNames = scannedUser.certificates?.map(c => c.name.toLowerCase()) || [];
-        const requiredCerts = selectedSite.requiredCertificates.map(rc => rc.toLowerCase());
+        const userCerts = scannedUser.certificates || [];
+        const requiredCerts = selectedSite.requiredCertificates;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const missingCerts = requiredCerts.filter(rc => !userCertNames.includes(rc));
+        const missing: string[] = [];
+        const expired: string[] = [];
+
+        for (const reqCertName of requiredCerts) {
+            const userCert = userCerts.find(c => c.name.toLowerCase() === reqCertName.toLowerCase());
+            if (!userCert) {
+                missing.push(reqCertName);
+            } else if (userCert.expiryDate) {
+                const expiry = new Date(userCert.expiryDate);
+                if (expiry < today) {
+                    expired.push(reqCertName);
+                }
+            }
+        }
 
         return {
-            hasAll: missingCerts.length === 0,
-            missing: missingCerts.map(mc => selectedSite.requiredCertificates.find(rc => rc.toLowerCase() === mc) || mc), // Return original casing
+            hasAll: missing.length === 0 && expired.length === 0,
+            missing,
+            expired,
         };
     };
 
-    const { hasAll: hasAllCerts, missing: missingCerts } = checkCertificates();
+    const certStatus = checkCertificates();
 
 
   return (
@@ -269,7 +294,7 @@ export default function ScanPage() {
                                 </div>
                             </div>
                             <div className="text-center space-y-4">
-                               {hasAllCerts ? (
+                               {certStatus.hasAll ? (
                                     <Badge className="bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30 text-base py-1 px-3">
                                         <ShieldCheck className="mr-2 h-5 w-5"/>
                                         Access Approved
@@ -280,12 +305,13 @@ export default function ScanPage() {
                                         Access Denied
                                     </Badge>
                                )}
-                                {!hasAllCerts && (
+                                {!certStatus.hasAll && (
                                     <Alert variant="destructive">
                                         <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle>Missing Certificates</AlertTitle>
-                                        <AlertDescription>
-                                            The following required certificates for {selectedSite?.name} are missing: {missingCerts.join(', ')}.
+                                        <AlertTitle>Certificate Issues</AlertTitle>
+                                        <AlertDescription className="space-y-1">
+                                            {certStatus.missing.length > 0 && <div>Missing: {certStatus.missing.join(', ')}</div>}
+                                            {certStatus.expired.length > 0 && <div>Expired: {certStatus.expired.join(', ')}</div>}
                                         </AlertDescription>
                                     </Alert>
                                 )}
@@ -293,7 +319,7 @@ export default function ScanPage() {
                         </div>
                         <DialogFooter className="grid grid-cols-2 gap-2">
                             <Button variant="outline" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
-                            <Button onClick={() => handleActivity('Check-in')} disabled={!hasAllCerts}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
+                            <Button onClick={() => handleActivity('Check-in')} disabled={!certStatus.hasAll}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
                         </DialogFooter>
                     </>
                 ) : (

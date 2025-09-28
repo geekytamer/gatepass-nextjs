@@ -10,7 +10,8 @@ import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Download } from 'lucide-react';
+import { ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { format, isBefore, parseISO } from 'date-fns';
 
 export default function ProfilePage() {
     const [user, setUser] = useState<User | null>(null);
@@ -32,6 +33,11 @@ export default function ProfilePage() {
         });
         return () => unsubscribe();
     }, [firestore, userId]);
+
+    const isCertificateExpired = (expiryDate?: string) => {
+        if (!expiryDate) return false;
+        return isBefore(parseISO(expiryDate), new Date());
+    };
 
     if (loading) {
         return <ProfileSkeleton />;
@@ -90,26 +96,37 @@ export default function ProfilePage() {
                 <CardDescription>These are the certificates associated with your profile.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {user.certificates.map((cert, index) => (
-                    <Card key={index} className="flex flex-col">
-                        <CardHeader className="flex-row items-center gap-3 space-y-0">
-                            <ShieldCheck className="h-6 w-6 text-primary" />
-                            <CardTitle className="text-lg">{cert.name}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex-grow flex items-center justify-center">
-                            {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-48 w-auto rounded-md border"/>}
-                            {cert.fileDataUrl.startsWith('data:application/pdf') && <div className="text-center p-4"><p className="font-semibold">PDF Document</p><p className="text-sm text-muted-foreground">Click to download</p></div>}
-                        </CardContent>
-                        <CardFooter>
-                           <Button asChild variant="outline" className="w-full">
-                                <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Download
-                                </a>
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ))}
+                {user.certificates.map((cert, index) => {
+                    const isExpired = isCertificateExpired(cert.expiryDate);
+                    return (
+                        <Card key={index} className="flex flex-col">
+                            <CardHeader className="flex-row items-start gap-3 space-y-0">
+                                <ShieldCheck className="h-6 w-6 text-primary mt-1" />
+                                <div className="flex-1">
+                                    <CardTitle className="text-lg">{cert.name}</CardTitle>
+                                    {cert.expiryDate && (
+                                        <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
+                                            Expires: {format(parseISO(cert.expiryDate), 'PPP')}
+                                        </CardDescription>
+                                    )}
+                                </div>
+                                 {isExpired && <AlertTriangle className="h-5 w-5 text-destructive" />}
+                            </CardHeader>
+                            <CardContent className="flex-grow flex items-center justify-center">
+                                {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-48 w-auto rounded-md border"/>}
+                                {cert.fileDataUrl.startsWith('data:application/pdf') && <div className="text-center p-4"><p className="font-semibold">PDF Document</p><p className="text-sm text-muted-foreground">Click to download</p></div>}
+                            </CardContent>
+                            <CardFooter>
+                               <Button asChild variant="outline" className="w-full">
+                                    <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Download
+                                    </a>
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )
+                })}
             </CardContent>
         </Card>
       )}

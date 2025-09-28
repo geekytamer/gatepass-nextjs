@@ -6,6 +6,7 @@ export type UserRole = 'Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker';
 export type Certificate = {
   name: string;
   fileDataUrl: string;
+  expiryDate?: string; // ISO 8601 string (e.g., "yyyy-MM-dd")
 }
 
 export type User = {

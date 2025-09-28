@@ -12,10 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, Certificate, CertificateType } from "@/lib/types";
-import { FileUp, Trash2 } from "lucide-react";
+import { CalendarIcon, FileUp, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Calendar } from "../ui/calendar";
 
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -36,7 +40,8 @@ const formSchema = z.object({
         .refine(
           (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
           "Only .jpg, .png, .webp, and .pdf formats are supported."
-        )
+        ),
+      expiryDate: z.date().optional(),
   })).optional(),
 });
 
@@ -97,6 +102,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                     values.certificates.map(async (cert) => ({
                         name: cert.name,
                         fileDataUrl: await fileToBase64(cert.file),
+                        expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
                     }))
                 );
             } catch (error) {
@@ -180,7 +186,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                         name={`certificates.${index}.name`}
                                         render={({ field }) => (
                                             <FormItem className="flex-1">
-                                                <FormLabel>Certificate Name</FormLabel>
+                                                <FormLabel>Certificate Type</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value} disabled={loadingCerts}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder={loadingCerts ? "Loading..." : "Select certificate type"} /></SelectTrigger></FormControl>
                                                     <SelectContent>
@@ -193,7 +199,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                             </FormItem>
                                         )}
                                     />
-                                     <FormField
+                                    <FormField
                                         control={form.control}
                                         name={`certificates.${index}.file`}
                                         render={({ field: { onChange, value, ...rest }}) => (
@@ -209,6 +215,44 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                                     />
                                                 </FormControl>
                                                 <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`certificates.${index}.expiryDate`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Expiry Date</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-[200px] pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                    >
+                                                    {field.value ? (
+                                                        format(field.value, "PPP")
+                                                    ) : (
+                                                        <span>Pick a date</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    initialFocus
+                                                />
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
                                             </FormItem>
                                         )}
                                     />

@@ -13,14 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck } from 'lucide-react';
+import { Paperclip, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { format, isBefore, parseISO } from 'date-fns';
 
 export default function UsersPage() {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
@@ -88,6 +89,11 @@ export default function UsersPage() {
     const currentUser = users.find(u => u.id === userId);
     return originalUser && currentUser && originalUser.role !== currentUser.role;
   }
+  
+  const isCertificateExpired = (expiryDate?: string) => {
+    if (!expiryDate) return false;
+    return isBefore(parseISO(expiryDate), new Date());
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -141,22 +147,41 @@ export default function UsersPage() {
                                         <span className="sr-only">View Certificates</span>
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
+                                <DialogContent className="max-w-3xl">
                                     <DialogHeader>
                                         <DialogTitle>Certificates for {user.name}</DialogTitle>
                                     </DialogHeader>
-                                    <div className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                                        {user.certificates.map((cert, index) => (
-                                          <Card key={index}>
-                                            <CardHeader>
-                                              <CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/>{cert.name}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                               {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[60vh] w-auto mx-auto rounded"/>}
-                                               {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[60vh] rounded border" title={cert.name}/>}
-                                            </CardContent>
-                                          </Card>
-                                        ))}
+                                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
+                                        {user.certificates.map((cert, index) => {
+                                           const isExpired = isCertificateExpired(cert.expiryDate);
+                                           return (
+                                            <Card key={index}>
+                                              <CardHeader className="flex-row items-start gap-3">
+                                                 <ShieldCheck className="h-5 w-5 text-primary mt-1"/>
+                                                 <div className="flex-1">
+                                                    <CardTitle className="text-lg">{cert.name}</CardTitle>
+                                                    {cert.expiryDate && (
+                                                        <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
+                                                            Expires: {format(parseISO(cert.expiryDate), 'PPP')}
+                                                        </CardDescription>
+                                                    )}
+                                                 </div>
+                                                 {isExpired && <AlertTriangle className="h-5 w-5 text-destructive" />}
+                                              </CardHeader>
+                                              <CardContent>
+                                                 {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[50vh] w-auto mx-auto rounded border"/>}
+                                                 {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[50vh] rounded border" title={cert.name}/>}
+                                              </CardContent>
+                                               <CardFooter>
+                                                    <Button asChild variant="outline" className="w-full">
+                                                        <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
+                                                            <Download className="mr-2 h-4 w-4" />
+                                                            Download
+                                                        </a>
+                                                    </Button>
+                                                </CardFooter>
+                                            </Card>
+                                        )})}
                                     </div>
                                 </DialogContent>
                             </Dialog>

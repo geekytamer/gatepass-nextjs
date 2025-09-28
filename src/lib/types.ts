@@ -17,6 +17,7 @@ export type User = {
   company?: string;
   certificates?: Certificate[];
   idCardImageUrl?: string;
+  assignedSiteId?: string; // Add this to assign a security user to a site
 };
 
 export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';

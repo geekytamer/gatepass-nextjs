@@ -2,14 +2,14 @@
 'use client'
 
 import { z } from "zod";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { User, UserRole, Certificate, CertificateType } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType, Site } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
@@ -29,19 +29,40 @@ const formSchema = z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
       expiryDate: z.date().optional(),
   })).optional(),
+  assignedSiteId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewUserFormProps {
     onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'idCardImageUrl'>) => void;
+    sites: Site[];
+    isLoadingSites: boolean;
 }
 
-export function NewUserForm({ onNewUser }: NewUserFormProps) {
+export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
     const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
+
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            name: "",
+            company: "",
+            email: "",
+            notes: "",
+            role: "Worker",
+            certificates: [],
+            assignedSiteId: "",
+        },
+    });
+
+    const selectedRole = useWatch({
+      control: form.control,
+      name: 'role'
+    });
 
     useEffect(() => {
         if (!firestore) return;
@@ -54,17 +75,6 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
         return () => certsUnsub();
     }, [firestore]);
 
-    const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            name: "",
-            company: "",
-            email: "",
-            notes: "",
-            role: "Worker",
-            certificates: [],
-        },
-    });
 
     const { fields, append, remove } = useFieldArray({
       control: form.control,
@@ -83,6 +93,7 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
             company: values.company,
             role: values.role as UserRole,
             certificates: certificates,
+            assignedSiteId: values.role === 'Security' ? values.assignedSiteId : undefined,
         });
 
         form.reset();
@@ -119,6 +130,33 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
                             </FormItem>
                         )} />
                     </div>
+
+                    {selectedRole === 'Security' && (
+                       <FormField
+                        control={form.control}
+                        name="assignedSiteId"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Assigned Site</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoadingSites}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={isLoadingSites ? "Loading sites..." : "Select a site to assign"} />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {sites.map(site => (
+                                    <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>Assign this security user to a specific site.</FormDescription>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    )}
+
 
                     <FormField control={form.control} name="notes" render={({ field }) => (
                         <FormItem>
@@ -214,5 +252,3 @@ export function NewUserForm({ onNewUser }: NewUserFormProps) {
         </Form>
     )
 }
-
-    

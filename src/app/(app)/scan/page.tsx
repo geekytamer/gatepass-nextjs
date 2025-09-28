@@ -22,7 +22,6 @@ import { useFirestore } from '@/firebase';
 import { collection, doc, getDoc, addDoc, serverTimestamp, onSnapshot, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import type { User as UserType, Site, AccessRequest } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
@@ -34,10 +33,20 @@ type ScanState = 'scanning' | 'user-found' | 'no-user' | 'visitor-register';
 type AccessStatus = 'approved' | 'denied-no-request' | 'denied-access-issue';
 
 export default function ScanPage() {
+    // In a real app, the current user would come from an auth hook.
+    // For this prototype, we'll simulate a logged-in security user.
+    const currentSecurityUser: UserType = {
+      id: 'sec_001',
+      name: 'Security Guard',
+      email: 'security@gatepass.com',
+      role: 'Security',
+      avatarUrl: 'https://picsum.photos/seed/sec001/200/200',
+      assignedSiteId: 'site_001' // This user is assigned to "Main Headquarters"
+    };
+
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
-    const [sites, setSites] = useState<Site[]>([]);
-    const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
-    const [loadingSites, setLoadingSites] = useState(true);
+    const [assignedSite, setAssignedSite] = useState<Site | null>(null);
+    const [loadingSite, setLoadingSite] = useState(true);
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -52,21 +61,27 @@ export default function ScanPage() {
     const idCardInputRef = useRef<HTMLInputElement>(null);
 
     const firestore = useFirestore();
-    const selectedSite = sites.find(s => s.id === selectedSiteId);
 
     useEffect(() => {
-        if (!firestore) return;
-        setLoadingSites(true);
-        const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
-            const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
-            setSites(sitesData);
-            if (sitesData.length > 0 && !selectedSiteId) {
-                setSelectedSiteId(sitesData[0].id);
+        if (!firestore || !currentSecurityUser.assignedSiteId) {
+            setLoadingSite(false);
+            return;
+        };
+
+        setLoadingSite(true);
+        const siteDocRef = doc(firestore, "sites", currentSecurityUser.assignedSiteId);
+        const siteUnsub = onSnapshot(siteDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setAssignedSite({ id: docSnap.id, ...docSnap.data() } as Site);
+            } else {
+                setAssignedSite(null);
+                toast({ variant: 'destructive', title: 'Site Error', description: 'Assigned site not found.' });
             }
-            setLoadingSites(false);
+            setLoadingSite(false);
         });
-        return () => sitesUnsub();
-    }, [firestore, selectedSiteId]);
+
+        return () => siteUnsub();
+    }, [firestore, currentSecurityUser.assignedSiteId, toast]);
 
     const stopScanner = useCallback(() => {
         if (scannerRef.current && scannerRef.current.isScanning) {
@@ -76,7 +91,7 @@ export default function ScanPage() {
     }, []);
 
     const handleScanSuccess = useCallback(async (decodedText: string) => {
-        if (!firestore || !selectedSiteId) return;
+        if (!firestore || !assignedSite) return;
         stopScanner();
         
         try {
@@ -93,7 +108,7 @@ export default function ScanPage() {
                     const requestsQuery = query(
                         collection(firestore, "accessRequests"),
                         where("userId", "==", user.id),
-                        where("siteId", "==", selectedSiteId),
+                        where("siteId", "==", assignedSite.id),
                         where("status", "==", "Approved"),
                         where("date", "==", todayStr)
                     );
@@ -119,10 +134,10 @@ export default function ScanPage() {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.'});
              handleClose();
         }
-    }, [firestore, selectedSiteId, stopScanner, toast]);
+    }, [firestore, assignedSite, stopScanner, toast]);
 
     const restartScanner = useCallback(() => {
-        if (!firestore || isScanning || hasCameraPermission === false || !selectedSiteId) {
+        if (!firestore || isScanning || hasCameraPermission === false || !assignedSite) {
             return;
         }
         const start = async () => {
@@ -155,7 +170,7 @@ export default function ScanPage() {
             }
         };
         start();
-    }, [firestore, hasCameraPermission, isScanning, selectedSiteId, handleScanSuccess]);
+    }, [firestore, hasCameraPermission, isScanning, assignedSite, handleScanSuccess]);
 
     useEffect(() => {
         restartScanner();
@@ -176,8 +191,8 @@ export default function ScanPage() {
     };
 
     const handleRegisterVisitorAndCheckIn = async () => {
-        if (!firestore || !visitorName || !visitorIdCardImage || !selectedSiteId) {
-            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide name, ID card image, and select a site.' });
+        if (!firestore || !visitorName || !visitorIdCardImage || !assignedSite) {
+            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide name and ID card image.' });
             return;
         }
         try {
@@ -202,8 +217,8 @@ export default function ScanPage() {
                 userAvatar: newUser.avatarUrl,
                 timestamp: serverTimestamp(),
                 type: 'Check-in',
-                gate: `${selectedSite?.name} Main Gate`,
-                siteId: selectedSiteId,
+                gate: `${assignedSite?.name} Main Gate`,
+                siteId: assignedSite.id,
             });
             toast({ title: `Check-in Successful`, description: `${newUser.name} has been checked in.` });
 
@@ -230,7 +245,7 @@ export default function ScanPage() {
     }
     
     const handleActivity = async (type: 'Check-in' | 'Check-out') => {
-        if (!scannedUser || !firestore || !selectedSiteId) return;
+        if (!scannedUser || !firestore || !assignedSite) return;
 
         try {
             await addDoc(collection(firestore, "gateActivity"), {
@@ -239,8 +254,8 @@ export default function ScanPage() {
                 userAvatar: scannedUser.avatarUrl,
                 timestamp: serverTimestamp(),
                 type: type,
-                gate: `${selectedSite?.name} Main Gate`,
-                siteId: selectedSiteId,
+                gate: `${assignedSite?.name} Main Gate`,
+                siteId: assignedSite.id,
             });
             toast({ title: `${type} Successful`, description: `${scannedUser?.name} has been checked ${type.toLowerCase()}.` });
         } catch(e) {
@@ -253,26 +268,25 @@ export default function ScanPage() {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
         <div className="w-full max-w-md mx-auto space-y-4">
-            {loadingSites ? <Skeleton className="h-10 w-full" /> : (
-                <Select value={selectedSiteId || ''} onValueChange={setSelectedSiteId} disabled={!sites.length}>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a site to begin scanning..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {sites.map(site => (
-                            <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            )}
+            <Card className="flex items-center justify-between p-3 bg-muted/50">
+                <div className="flex items-center gap-3">
+                    <Building className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-semibold">Site:</span>
+                </div>
+                {loadingSite ? (
+                    <Skeleton className="h-6 w-48" />
+                ) : (
+                    <span className="font-bold text-lg">{assignedSite?.name || 'No Site Assigned'}</span>
+                )}
+            </Card>
 
              <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border flex items-center justify-center">
                  {hasCameraPermission === null ? (
                     <div className="text-muted-foreground">Initializing Camera...</div>
-                 ) : hasCameraPermission && selectedSiteId ? (
+                 ) : hasCameraPermission && assignedSite ? (
                     <div id={QR_SCANNER_ELEMENT_ID} className="w-full h-full [&>video]:w-full [&>video]:h-full [&>video]:object-cover [&>div>img]:hidden [&>div>button]:hidden" />
-                 ) : !selectedSiteId ? (
-                    <div className="text-muted-foreground p-4">Please select a site to start the scanner.</div>
+                 ) : !assignedSite ? (
+                    <div className="text-muted-foreground p-4">You must be assigned to a site to start scanning.</div>
                  ) : (
                     <div className="flex flex-col items-center gap-2 text-destructive p-4">
                         <CameraOff className="h-10 w-10" />
@@ -280,7 +294,7 @@ export default function ScanPage() {
                         <p className="text-sm text-muted-foreground">Could not access the camera. Please check your browser permissions.</p>
                     </div>
                  )}
-                 { hasCameraPermission && selectedSiteId && scanState === 'scanning' && (
+                 { hasCameraPermission && assignedSite && scanState === 'scanning' && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg shadow-inner-strong" style={{boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)'}}/>
                     </div>
@@ -303,7 +317,7 @@ export default function ScanPage() {
             </p>
         </div>
 
-        <Button size="lg" onClick={() => setScanState('visitor-register')} disabled={!selectedSiteId}>
+        <Button size="lg" onClick={() => setScanState('visitor-register')} disabled={!assignedSite || loadingSite}>
             <UserPlus className="mr-2 h-5 w-5" />
             Register New Visitor
         </Button>
@@ -410,5 +424,3 @@ export default function ScanPage() {
     </div>
   );
 }
-
-    

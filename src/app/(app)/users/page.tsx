@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import type { User, UserRole, Certificate } from '@/lib/types';
+import type { User, UserRole, Certificate, Site } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { UsersTable } from '@/components/users/users-table';
 import { NewUserForm } from '@/components/users/new-user-form';
@@ -16,7 +16,9 @@ import { Plus } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingSites, setLoadingSites] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -29,7 +31,18 @@ export default function UsersPage() {
       setUsers(usersData);
       setLoading(false);
     });
-    return () => unsubscribe();
+    
+    setLoadingSites(true);
+    const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
+        const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        setSites(sitesData);
+        setLoadingSites(false);
+    });
+
+    return () => {
+        unsubscribe();
+        sitesUnsub();
+    }
   }, [firestore]);
 
   const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl'>) => {
@@ -71,13 +84,18 @@ export default function UsersPage() {
                 <DialogTitle>Create New User Profile</DialogTitle>
                 <DialogDescription>Enter the user's details below to create a new profile.</DialogDescription>
             </DialogHeader>
-            <NewUserForm onNewUser={addUser} />
+            <NewUserForm 
+              onNewUser={addUser} 
+              sites={sites}
+              isLoadingSites={loadingSites}
+            />
           </DialogContent>
         </Dialog>
       </header>
        <UsersTable 
-          users={users} 
-          isLoading={loading}
+          users={users}
+          sites={sites}
+          isLoading={loading || loadingSites}
         />
     </div>
   );

@@ -16,11 +16,11 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { User, UserRole } from '@/lib/types';
+import type { User, UserRole, Site } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, AlertTriangle, Contact } from 'lucide-react';
+import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,13 +30,15 @@ import {
 } from "@/components/ui/dialog";
 import { format, isBefore, parseISO } from 'date-fns';
 import Image from 'next/image';
+import { Badge } from '../ui/badge';
 
 interface UsersTableProps {
   users: User[];
+  sites: Site[];
   isLoading: boolean;
 }
 
-export function UsersTable({ users, isLoading }: UsersTableProps) {
+export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
   const [userList, setUserList] = useState<User[]>([]);
   const [originalUsers, setOriginalUsers] = useState<User[]>([]);
@@ -64,13 +66,14 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
     
     try {
       const userRef = doc(firestore, "users", userId);
+      // We only allow role changes from this table for now. 
+      // More complex edits would need a dedicated edit form.
       await updateDoc(userRef, { role: userToSave.role });
       
       toast({
         title: 'User Updated',
         description: `${userToSave.name}'s role has been saved.`,
       });
-      // After saving, the live snapshot will update the state, but we can also update originalUsers to reflect the change immediately
       setOriginalUsers(prev => prev.map(u => u.id === userId ? userToSave : u));
     } catch(error) {
       console.error("Error updating user role:", error);
@@ -79,7 +82,6 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
         description: `Could not update ${userToSave.name}'s role.`,
         variant: 'destructive',
       });
-      // Revert change on UI if save fails
       setUserList(originalUsers);
     }
   };
@@ -95,6 +97,11 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
     return isBefore(parseISO(expiryDate), new Date());
   };
 
+  const getSiteName = (siteId?: string) => {
+    if (!siteId) return 'N/A';
+    return sites.find(s => s.id === siteId)?.name || 'Unknown Site';
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -107,8 +114,7 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
-                <TableHead className="hidden md:table-cell">Company</TableHead>
+                <TableHead className="hidden sm:table-cell">Details</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -118,8 +124,7 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
                 [...Array(5)].map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-5 w-24" /></div></TableCell>
-                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
                     <TableCell><Skeleton className="h-9 w-[120px]" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-9 w-16 ml-auto" /></TableCell>
                   </TableRow>
@@ -191,8 +196,16 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
-                    <TableCell className="hidden md:table-cell">{user.company || 'N/A'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                        <div>{user.email}</div>
+                        <div>{user.company || ''}</div>
+                        {user.role === 'Security' && user.assignedSiteId && (
+                           <Badge variant="outline" className="mt-1 flex items-center w-fit gap-1">
+                               <Building className="h-3 w-3" />
+                               {getSiteName(user.assignedSiteId)}
+                           </Badge>
+                        )}
+                    </TableCell>
                     <TableCell>
                       <Select value={user.role} onValueChange={(newRole: UserRole) => handleRoleChange(user.id, newRole)}>
                         <SelectTrigger className="w-[120px]">

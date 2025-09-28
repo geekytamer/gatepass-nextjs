@@ -22,6 +22,7 @@ import {
   QrCode as QrCodeIcon,
   ShieldCheck,
   Building,
+  Building2,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/access-requests', label: 'Access Requests', icon: ClipboardList },
   { href: '/visitors', label: 'Visitors', icon: Building },
+  { href: '/sites', label: 'Site Management', icon: Building2 },
   { href: '/scan', label: 'Scan', icon: ScanLine },
   { href: '/users', label: 'User Management', icon: Users },
   { href: '/profile', label: 'My QR Code', icon: QrCodeIcon },

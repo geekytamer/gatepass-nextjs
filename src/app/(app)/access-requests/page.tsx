@@ -2,12 +2,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { collection, onSnapshot, query, where, addDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, where, addDoc, doc, updateDoc, serverTimestamp, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
 import { NewRequestForm } from "@/components/access-requests/new-request-form";
-import type { AccessRequest } from "@/lib/types";
+import type { AccessRequest, Site } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AccessRequestsPage() {
@@ -18,13 +18,30 @@ export default function AccessRequestsPage() {
 
   const [currentUserRequests, setCurrentUserRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPending, setLoadingPending] = useState(true);
+  const [loadingSites, setLoadingSites] = useState(true);
 
   useEffect(() => {
     if (!firestore) return;
-    setLoading(true);
 
+    // Fetch sites once
+    const fetchSites = async () => {
+        setLoadingSites(true);
+        try {
+            const sitesSnapshot = await getDocs(collection(firestore, "sites"));
+            const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+            setSites(sitesData);
+        } catch (error) {
+            console.error("Error fetching sites:", error);
+        } finally {
+            setLoadingSites(false);
+        }
+    };
+    fetchSites();
+    
+    setLoading(true);
     const requestsCollection = collection(firestore, "accessRequests");
 
     // Listener for current user's requests
@@ -42,7 +59,8 @@ export default function AccessRequestsPage() {
     let unsubscribePendingRequests = () => {};
     if (isManager) {
       setLoadingPending(true);
-      const pendingRequestsQuery = query(requestsCollection, where("status", "==", "Pending"));
+      // For a manager, we now fetch requests for the sites they manage.
+      const pendingRequestsQuery = query(requestsCollection, where("status", "==", "Pending"), where("managerIds", "array-contains", currentUserId));
       unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
         const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
         setPendingRequests(pending);
@@ -65,10 +83,12 @@ export default function AccessRequestsPage() {
         return;
     }
     try {
+        const site = sites.find(s => s.id === newRequest.siteId);
         await addDoc(collection(firestore, "accessRequests"), {
             ...newRequest,
             status: 'Pending',
-            requestedAt: serverTimestamp()
+            requestedAt: serverTimestamp(),
+            managerIds: site?.managerIds || [] // Add managerIds for querying
         });
         // Toast is handled in the form component
     } catch (error) {
@@ -108,7 +128,12 @@ export default function AccessRequestsPage() {
             <RequestsTable title="My Past Requests" description="A log of your submitted access requests." requests={currentUserRequests} isLoading={loading} />
         </TabsContent>
         <TabsContent value="new-request">
-            <NewRequestForm currentUserId={currentUserId} onNewRequest={handleAddRequest} />
+            <NewRequestForm 
+              currentUserId={currentUserId} 
+              onNewRequest={handleAddRequest}
+              sites={sites}
+              isLoadingSites={loadingSites}
+            />
         </TabsContent>
         {isManager && (
             <TabsContent value="approve">

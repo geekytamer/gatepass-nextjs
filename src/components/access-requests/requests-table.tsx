@@ -45,7 +45,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
     onAction?.(requestId, status);
   }
 
-  const colSpan = showActions ? 5 : 4;
+  const colSpan = showActions ? 6 : 5;
 
   return (
     <Card>
@@ -59,6 +59,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
+                <TableHead>Site</TableHead>
                 <TableHead>Access Date</TableHead>
                 <TableHead className="hidden md:table-cell">Reason</TableHead>
                 <TableHead>Status</TableHead>
@@ -84,6 +85,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                         <div className="font-medium whitespace-nowrap">{request.userName}</div>
                       </div>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap">{request.siteName}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {request.date ? format(new Date(request.date), 'MMMM dd, yyyy') : 'N/A'}
                     </TableCell>

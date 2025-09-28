@@ -29,6 +29,8 @@ export type AccessRequest = {
   reason: string;
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;
+  siteId: string;
+  siteName: string;
 };
 
 export type GateActivity = {
@@ -39,4 +41,12 @@ export type GateActivity = {
   timestamp: string; // Should be ISO string
   type: 'Check-in' | 'Check-out';
   gate: string;
+  siteId: string;
 };
+
+export type Site = {
+    id: string;
+    name: string;
+    managerIds: string[];
+    requiredCertificates: string[];
+}

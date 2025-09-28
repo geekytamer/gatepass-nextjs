@@ -27,7 +27,7 @@ export function RecentActivity() {
     useEffect(() => {
         if (!firestore) return;
         setLoading(true);
-        const activityQuery = query(collection(firestore, "gateActivity"), orderBy("timestamp", "desc"), limit(5));
+        const activityQuery = query(collection(firestore, "gateActivity"), orderBy("timestamp", "desc"), limit(10));
 
         const unsubscribe = onSnapshot(activityQuery, (snapshot) => {
             const activities = snapshot.docs.map(doc => ({
@@ -47,7 +47,7 @@ export function RecentActivity() {
     <Card>
       <CardHeader>
         <CardTitle>Recent Gate Activity</CardTitle>
-        <CardDescription>A real-time log of the latest check-ins and check-outs.</CardDescription>
+        <CardDescription>A real-time log of the latest check-ins and check-outs across all sites.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

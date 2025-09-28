@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
-import { ScanLine, Check, LogOut, User, Building, X, CameraOff } from 'lucide-react';
+import { ScanLine, Check, LogOut, User, Building, X, CameraOff, AlertTriangle, ShieldCheck, ShieldOff } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,23 +19,43 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import type { User as UserType } from '@/lib/types';
+import { collection, doc, getDoc, getDocs, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import type { User as UserType, Site } from '@/lib/types';
 import { Card } from '@/components/ui/card';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const QR_SCANNER_ELEMENT_ID = 'qr-scanner';
 
 export default function ScanPage() {
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
+    const [sites, setSites] = useState<Site[]>([]);
+    const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+    const [loadingSites, setLoadingSites] = useState(true);
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const firestore = useFirestore();
+
+    const selectedSite = sites.find(s => s.id === selectedSiteId);
     
+    useEffect(() => {
+        if (!firestore) return;
+        setLoadingSites(true);
+        const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
+            const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+            setSites(sitesData);
+            if (sitesData.length > 0 && !selectedSiteId) {
+                setSelectedSiteId(sitesData[0].id);
+            }
+            setLoadingSites(false);
+        });
+        return () => sitesUnsub();
+    }, [firestore, selectedSiteId]);
+
     const restartScanner = useCallback(() => {
-        if (!firestore || (scannerRef.current && scannerRef.current.isScanning) || hasCameraPermission === false) {
+        if (!firestore || (scannerRef.current && scannerRef.current.isScanning) || hasCameraPermission === false || !selectedSiteId) {
             return;
         }
 
@@ -94,7 +114,7 @@ export default function ScanPage() {
         };
 
         start();
-    }, [firestore, hasCameraPermission, toast]);
+    }, [firestore, hasCameraPermission, toast, selectedSiteId]);
 
     useEffect(() => {
         restartScanner();
@@ -132,7 +152,7 @@ export default function ScanPage() {
     }
 
     const handleActivity = async (type: 'Check-in' | 'Check-out') => {
-        if (!scannedUser || !firestore) return;
+        if (!scannedUser || !firestore || !selectedSiteId) return;
 
         try {
             await addDoc(collection(firestore, "gateActivity"), {
@@ -141,7 +161,8 @@ export default function ScanPage() {
                 userAvatar: scannedUser.avatarUrl,
                 timestamp: serverTimestamp(),
                 type: type,
-                gate: 'Main Gate',
+                gate: `${selectedSite?.name} Main Gate`,
+                siteId: selectedSiteId,
             });
             toast({ title: `${type} Successful`, description: `${scannedUser?.name} has been checked ${type.toLowerCase()}.` });
         } catch(e) {
@@ -151,14 +172,46 @@ export default function ScanPage() {
         handleClose();
     }
 
+    const checkCertificates = () => {
+        if (!scannedUser || !selectedSite) return { hasAll: true, missing: [] };
+
+        const userCertNames = scannedUser.certificates?.map(c => c.name.toLowerCase()) || [];
+        const requiredCerts = selectedSite.requiredCertificates.map(rc => rc.toLowerCase());
+
+        const missingCerts = requiredCerts.filter(rc => !userCertNames.includes(rc));
+
+        return {
+            hasAll: missingCerts.length === 0,
+            missing: missingCerts.map(mc => selectedSite.requiredCertificates.find(rc => rc.toLowerCase() === mc) || mc), // Return original casing
+        };
+    };
+
+    const { hasAll: hasAllCerts, missing: missingCerts } = checkCertificates();
+
+
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
-        <div className="w-full max-w-md mx-auto">
+        <div className="w-full max-w-md mx-auto space-y-4">
+            {loadingSites ? <Skeleton className="h-10 w-full" /> : (
+                <Select value={selectedSiteId || ''} onValueChange={setSelectedSiteId} disabled={!sites.length}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a site to begin scanning..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {sites.map(site => (
+                            <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            )}
+
              <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border flex items-center justify-center">
                  {hasCameraPermission === null ? (
                     <div className="text-muted-foreground">Initializing Camera...</div>
-                 ) : hasCameraPermission ? (
+                 ) : hasCameraPermission && selectedSiteId ? (
                     <div id={QR_SCANNER_ELEMENT_ID} className="w-full h-full [&>video]:w-full [&>video]:h-full [&>video]:object-cover [&>div>img]:hidden [&>div>button]:hidden" />
+                 ) : !selectedSiteId ? (
+                    <div className="text-muted-foreground p-4">Please select a site to start the scanner.</div>
                  ) : (
                     <div className="flex flex-col items-center gap-2 text-destructive p-4">
                         <CameraOff className="h-10 w-10" />
@@ -166,7 +219,7 @@ export default function ScanPage() {
                         <p className="text-sm text-muted-foreground">Could not access the camera. Please check your browser permissions.</p>
                     </div>
                  )}
-                 { hasCameraPermission && <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                 { hasCameraPermission && selectedSiteId && <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg shadow-inner-strong" style={{boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)'}}/>
                 </div>}
             </Card>
@@ -183,16 +236,16 @@ export default function ScanPage() {
         <div className="space-y-2">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gate Scanning</h1>
             <p className="text-muted-foreground max-w-md mx-auto">
-                Position a user's QR code inside the frame to scan it.
+                Select a site, then position a user's QR code inside the frame to scan.
             </p>
         </div>
-        <Button size="lg" onClick={handleSimulateScan}>
+        <Button size="lg" onClick={handleSimulateScan} disabled={!selectedSiteId}>
             <User className="mr-2 h-5 w-5" />
             Simulate Scan
         </Button>
 
          <Dialog open={!!scannedUser} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-md">
                 {scannedUser ? (
                     <>
                         <DialogHeader>
@@ -215,13 +268,32 @@ export default function ScanPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="text-center">
-                                <Badge className="bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30">Access Approved</Badge>
+                            <div className="text-center space-y-4">
+                               {hasAllCerts ? (
+                                    <Badge className="bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30 text-base py-1 px-3">
+                                        <ShieldCheck className="mr-2 h-5 w-5"/>
+                                        Access Approved
+                                    </Badge>
+                               ) : (
+                                    <Badge variant="destructive" className="text-base py-1 px-3">
+                                        <ShieldOff className="mr-2 h-5 w-5"/>
+                                        Access Denied
+                                    </Badge>
+                               )}
+                                {!hasAllCerts && (
+                                    <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>Missing Certificates</AlertTitle>
+                                        <AlertDescription>
+                                            The following required certificates for {selectedSite?.name} are missing: {missingCerts.join(', ')}.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
                             </div>
                         </div>
                         <DialogFooter className="grid grid-cols-2 gap-2">
                             <Button variant="outline" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
-                            <Button onClick={() => handleActivity('Check-in')}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
+                            <Button onClick={() => handleActivity('Check-in')} disabled={!hasAllCerts}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
                         </DialogFooter>
                     </>
                 ) : (
@@ -240,4 +312,3 @@ export default function ScanPage() {
     </div>
   );
 }
-

@@ -13,14 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { Paperclip, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -147,7 +147,7 @@ export default function UsersPage() {
                                         <span className="sr-only">View Certificates</span>
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-3xl">
+                                <DialogContent className="max-w-xl">
                                     <DialogHeader>
                                         <DialogTitle>Certificates for {user.name}</DialogTitle>
                                     </DialogHeader>
@@ -160,26 +160,16 @@ export default function UsersPage() {
                                                  <ShieldCheck className="h-5 w-5 text-primary mt-1"/>
                                                  <div className="flex-1">
                                                     <CardTitle className="text-lg">{cert.name}</CardTitle>
-                                                    {cert.expiryDate && (
+                                                    {cert.expiryDate ? (
                                                         <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
                                                             Expires: {format(parseISO(cert.expiryDate), 'PPP')}
                                                         </CardDescription>
+                                                    ) : (
+                                                      <CardDescription>No expiry date</CardDescription>
                                                     )}
                                                  </div>
                                                  {isExpired && <AlertTriangle className="h-5 w-5 text-destructive" />}
                                               </CardHeader>
-                                              <CardContent>
-                                                 {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[50vh] w-auto mx-auto rounded border"/>}
-                                                 {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[50vh] rounded border" title={cert.name}/>}
-                                              </CardContent>
-                                               <CardFooter>
-                                                    <Button asChild variant="outline" className="w-full">
-                                                        <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
-                                                            <Download className="mr-2 h-4 w-4" />
-                                                            Download
-                                                        </a>
-                                                    </Button>
-                                                </CardFooter>
                                             </Card>
                                         )})}
                                     </div>

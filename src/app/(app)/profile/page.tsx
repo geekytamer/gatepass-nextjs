@@ -1,6 +1,6 @@
 
 'use client';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { QrCode } from '@/components/qr-code';
@@ -9,8 +9,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 import { format, isBefore, parseISO } from 'date-fns';
 
 export default function ProfilePage() {
@@ -93,7 +92,7 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
                 <CardTitle>My Certificates</CardTitle>
-                <CardDescription>These are the certificates associated with your profile.</CardDescription>
+                <CardDescription>These are the certificate records associated with your profile.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {user.certificates.map((cert, index) => {
@@ -104,26 +103,16 @@ export default function ProfilePage() {
                                 <ShieldCheck className="h-6 w-6 text-primary mt-1" />
                                 <div className="flex-1">
                                     <CardTitle className="text-lg">{cert.name}</CardTitle>
-                                    {cert.expiryDate && (
+                                    {cert.expiryDate ? (
                                         <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
                                             Expires: {format(parseISO(cert.expiryDate), 'PPP')}
                                         </CardDescription>
+                                    ) : (
+                                        <CardDescription>No expiry date</CardDescription>
                                     )}
                                 </div>
                                  {isExpired && <AlertTriangle className="h-5 w-5 text-destructive" />}
                             </CardHeader>
-                            <CardContent className="flex-grow flex items-center justify-center">
-                                {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-48 w-auto rounded-md border"/>}
-                                {cert.fileDataUrl.startsWith('data:application/pdf') && <div className="text-center p-4"><p className="font-semibold">PDF Document</p><p className="text-sm text-muted-foreground">Click to download</p></div>}
-                            </CardContent>
-                            <CardFooter>
-                               <Button asChild variant="outline" className="w-full">
-                                    <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Download
-                                    </a>
-                                </Button>
-                            </CardFooter>
                         </Card>
                     )
                 })}

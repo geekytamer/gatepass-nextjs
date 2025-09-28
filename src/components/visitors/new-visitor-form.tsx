@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, Certificate, CertificateType } from "@/lib/types";
-import { CalendarIcon, FileUp, Trash2 } from "lucide-react";
+import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
@@ -20,10 +20,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "../ui/calendar";
-
-
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
 
 const formSchema = z.object({
@@ -34,13 +30,6 @@ const formSchema = z.object({
   notes: z.string().optional(),
   certificates: z.array(z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
-      file: z.any()
-        .refine((file) => file, "File is required.")
-        .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 4MB.`)
-        .refine(
-          (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
-          "Only .jpg, .png, .webp, and .pdf formats are supported."
-        ),
       expiryDate: z.date().optional(),
   })).optional(),
 });
@@ -85,36 +74,11 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
       name: "certificates",
     });
 
-    const fileToBase64 = (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-      });
-    };
-
     async function onSubmit(values: FormValues) {
-        let certificates: Certificate[] = [];
-        if (values.certificates) {
-            try {
-                 certificates = await Promise.all(
-                    values.certificates.map(async (cert) => ({
-                        name: cert.name,
-                        fileDataUrl: await fileToBase64(cert.file),
-                        expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
-                    }))
-                );
-            } catch (error) {
-                 console.error("Error converting files to Base64:", error);
-                 toast({
-                    variant: "destructive",
-                    title: "File Error",
-                    description: "Could not process one or more certificate files.",
-                });
-                return;
-            }
-        }
+        const certificates: Certificate[] = values.certificates ? values.certificates.map(cert => ({
+            name: cert.name,
+            expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
+        })) : [];
 
         onNewVisitor({
             name: values.name,
@@ -201,25 +165,6 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                     />
                                     <FormField
                                         control={form.control}
-                                        name={`certificates.${index}.file`}
-                                        render={({ field: { onChange, value, ...rest }}) => (
-                                            <FormItem>
-                                                <FormLabel>File</FormLabel>
-                                                <FormControl>
-                                                   <Input
-                                                      type="file"
-                                                      onChange={e => onChange(e.target.files?.[0])}
-                                                      className="max-w-[200px]"
-                                                      accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                                                      {...rest}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
                                         name={`certificates.${index}.expiryDate`}
                                         render={({ field }) => (
                                             <FormItem className="flex flex-col">
@@ -265,12 +210,12 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => append({ name: '', file: null })}
+                                onClick={() => append({ name: '' })}
                             >
-                                <FileUp className="mr-2 h-4 w-4" />
-                                Add Certificate
+                                <FileText className="mr-2 h-4 w-4" />
+                                Add Certificate Record
                             </Button>
-                            <FormDescription>Attach relevant certificates like safety training or work orders.</FormDescription>
+                            <FormDescription>Log certificates written on ID cards, like safety training or work permits.</FormDescription>
                         </div>
                     </CardContent>
                     <CardFooter>

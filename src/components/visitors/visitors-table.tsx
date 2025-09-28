@@ -10,19 +10,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Edit, Loader2, Paperclip, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit, Loader2, Paperclip, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { format, isBefore, parseISO } from 'date-fns';
@@ -83,7 +82,7 @@ export function VisitorsTable({ visitors, onDeleteVisitor, isLoading = false }: 
                                         <span className="sr-only">View Certificates</span>
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-3xl">
+                                <DialogContent className="max-w-xl">
                                     <DialogHeader>
                                         <DialogTitle>Certificates for {user.name}</DialogTitle>
                                     </DialogHeader>
@@ -96,26 +95,16 @@ export function VisitorsTable({ visitors, onDeleteVisitor, isLoading = false }: 
                                                  <ShieldCheck className="h-5 w-5 text-primary mt-1"/>
                                                  <div className="flex-1">
                                                     <CardTitle className="text-lg">{cert.name}</CardTitle>
-                                                    {cert.expiryDate && (
+                                                     {cert.expiryDate ? (
                                                         <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
                                                             Expires: {format(parseISO(cert.expiryDate), 'PPP')}
                                                         </CardDescription>
+                                                    ) : (
+                                                      <CardDescription>No expiry date</CardDescription>
                                                     )}
                                                  </div>
                                                  {isExpired && <AlertTriangle className="h-5 w-5 text-destructive" />}
                                               </CardHeader>
-                                              <CardContent>
-                                                 {cert.fileDataUrl.startsWith('data:image') && <img src={cert.fileDataUrl} alt={cert.name} className="max-h-[50vh] w-auto mx-auto rounded border"/>}
-                                                 {cert.fileDataUrl.startsWith('data:application/pdf') && <iframe src={cert.fileDataUrl} className="w-full h-[50vh] rounded border" title={cert.name}/>}
-                                              </CardContent>
-                                                <CardFooter>
-                                                    <Button asChild variant="outline" className="w-full">
-                                                        <a href={cert.fileDataUrl} download={`${user.name.replace(' ', '_')}_${cert.name.replace(' ', '_')}`}>
-                                                            <Download className="mr-2 h-4 w-4" />
-                                                            Download
-                                                        </a>
-                                                    </Button>
-                                                </CardFooter>
                                             </Card>
                                         )})}
                                     </div>

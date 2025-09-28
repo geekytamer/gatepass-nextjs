@@ -32,11 +32,11 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/access-requests', label: 'Access Requests', icon: ClipboardList },
-  { href: '/visitors', label: 'Visitors', icon: Building },
+  { href: '/visitors', label: 'Visitors & Workers', icon: Building },
   { href: '/sites', label: 'Site Management', icon: Building2 },
   { href: '/certificates', label: 'Certificates', icon: FileBadge },
-  { href: '/scan', label: 'Scan', icon: ScanLine },
   { href: '/users', label: 'User Management', icon: Users },
+  { href: '/scan', label: 'Scan', icon: ScanLine },
   { href: '/profile', label: 'My QR Code', icon: QrCodeIcon },
 ];
 

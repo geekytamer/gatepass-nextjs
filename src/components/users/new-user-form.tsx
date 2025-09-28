@@ -24,9 +24,9 @@ import { Calendar } from "../ui/calendar";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  company: z.string().min(2, { message: "Company must be at least 2 characters." }),
+  company: z.string().optional(),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['Visitor', 'Worker']),
+  role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
@@ -36,15 +36,16 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface NewVisitorFormProps {
-    onNewVisitor: (visitor: Omit<User, 'id' | 'avatarUrl'>) => void;
+interface NewUserFormProps {
+    onNewUser: (user: Omit<User, 'id' | 'avatarUrl'>) => void;
 }
 
-export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
+export function NewUserForm({ onNewUser }: NewUserFormProps) {
     const { toast } = useToast();
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
+    const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
 
     useEffect(() => {
         if (!firestore) return;
@@ -80,7 +81,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
-        onNewVisitor({
+        onNewUser({
             name: values.name,
             email: values.email,
             company: values.company,
@@ -94,8 +95,8 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Create New Visitor Profile</CardTitle>
-                <CardDescription>Enter the visitor's details below to create a new profile.</CardDescription>
+                <CardTitle>Create New User Profile</CardTitle>
+                <CardDescription>Enter the user's details below to create a new profile.</CardDescription>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -104,22 +105,23 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                             <FormField control={form.control} name="name" render={({ field }) => (
                                 <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                            <FormField control={form.control} name="company" render={({ field }) => (
-                                <FormItem><FormLabel>Company</FormLabel><FormControl><Input placeholder="Acme Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                             <FormField control={form.control} name="email" render={({ field }) => (
+                                <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                        <FormField control={form.control} name="email" render={({ field }) => (
-                            <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="john.doe@acme.com" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-
+                       
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <FormField control={form.control} name="company" render={({ field }) => (
+                                <FormItem><FormLabel>Company (optional)</FormLabel><FormControl><Input placeholder="Acme Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
                             <FormField control={form.control} name="role" render={({ field }) => (
                                 <FormItem><FormLabel>Role</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Visitor">Visitor</SelectItem>
-                                        <SelectItem value="Worker">Worker</SelectItem>
+                                        {roles.map(role => (
+                                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -131,7 +133,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                             <FormItem>
                                 <FormLabel>Notes (Optional)</FormLabel>
                                 <FormControl>
-                                    <Textarea placeholder="e.g., Attending the 2pm marketing meeting in room 301." {...field} />
+                                    <Textarea placeholder="e.g., Senior project manager for the new construction wing." {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -139,7 +141,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
 
                         <div className="space-y-4">
                           <FormLabel>Certificates (Optional)</FormLabel>
-                          <FormDescription>Log certificates written on ID cards, like safety training or work permits.</FormDescription>
+                          <FormDescription>Log certificates like safety training or work permits.</FormDescription>
                             {fields.map((field, index) => (
                                 <div key={field.id} className="flex items-end gap-4 p-4 border rounded-md relative">
                                     <FormField
@@ -215,7 +217,7 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button type="submit">Create Profile</Button>
+                        <Button type="submit">Create User Profile</Button>
                     </CardFooter>
                 </form>
             </Form>

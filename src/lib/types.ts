@@ -51,3 +51,8 @@ export type Site = {
     managerIds: string[];
     requiredCertificates: string[];
 }
+
+export type CertificateType = {
+    id: string;
+    name: string;
+}

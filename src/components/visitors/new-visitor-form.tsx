@@ -6,15 +6,17 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { User, UserRole, Certificate } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType } from "@/lib/types";
 import { FileUp, Trash2 } from "lucide-react";
-import React from "react";
-import { certificateTypes } from "@/lib/certificate-types";
+import React, { useEffect, useState } from "react";
+import { useFirestore } from "@/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
@@ -46,6 +48,20 @@ interface NewVisitorFormProps {
 
 export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
     const { toast } = useToast();
+    const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
+    const [loadingCerts, setLoadingCerts] = useState(true);
+    const firestore = useFirestore();
+
+    useEffect(() => {
+        if (!firestore) return;
+        setLoadingCerts(true);
+        const certsUnsub = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
+            const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
+            setCertificateTypes(certsData);
+            setLoadingCerts(false);
+        });
+        return () => certsUnsub();
+    }, [firestore]);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -165,11 +181,11 @@ export function NewVisitorForm({ onNewVisitor }: NewVisitorFormProps) {
                                         render={({ field }) => (
                                             <FormItem className="flex-1">
                                                 <FormLabel>Certificate Name</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select certificate type" /></SelectTrigger></FormControl>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={loadingCerts}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder={loadingCerts ? "Loading..." : "Select certificate type"} /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         {certificateTypes.map(type => (
-                                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                            <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>

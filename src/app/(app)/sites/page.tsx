@@ -7,14 +7,16 @@ import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firest
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SitesTable } from "@/components/sites/sites-table";
 import { NewSiteForm } from "@/components/sites/new-site-form";
-import type { Site, User } from '@/lib/types';
+import type { Site, User, CertificateType } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
   const [loadingSites, setLoadingSites] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingCerts, setLoadingCerts] = useState(true);
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -35,9 +37,17 @@ export default function SitesPage() {
         setLoadingUsers(false);
     });
 
+    setLoadingCerts(true);
+    const certsUnsub = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
+        const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
+        setCertificateTypes(certsData);
+        setLoadingCerts(false);
+    });
+
     return () => {
       sitesUnsub();
       usersUnsub();
+      certsUnsub();
     };
   }, [firestore]);
 
@@ -80,11 +90,12 @@ export default function SitesPage() {
             <NewSiteForm 
               onNewSite={handleAddSite}
               users={users}
+              certificateTypes={certificateTypes}
               isLoadingUsers={loadingUsers}
+              isLoadingCerts={loadingCerts}
             />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-

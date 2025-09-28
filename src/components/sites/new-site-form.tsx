@@ -8,14 +8,13 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { Site, User } from "@/lib/types";
+import type { Site, User, CertificateType } from "@/lib/types";
 import React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Check } from "lucide-react";
-import { certificateTypes } from "@/lib/certificate-types";
 import { Badge } from "../ui/badge";
 
 
@@ -30,10 +29,12 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewSiteFormProps {
     onNewSite: (site: Omit<Site, 'id'>) => void;
     users: User[];
+    certificateTypes: CertificateType[];
     isLoadingUsers: boolean;
+    isLoadingCerts: boolean;
 }
 
-export function NewSiteForm({ onNewSite, users, isLoadingUsers }: NewSiteFormProps) {
+export function NewSiteForm({ onNewSite, users, certificateTypes, isLoadingUsers, isLoadingCerts }: NewSiteFormProps) {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -84,15 +85,17 @@ export function NewSiteForm({ onNewSite, users, isLoadingUsers }: NewSiteFormPro
                                                 "w-full justify-between h-auto min-h-10",
                                                 !field.value?.length && "text-muted-foreground"
                                             )}
+                                            disabled={isLoadingUsers}
                                             >
                                             <div className="flex flex-wrap gap-1">
-                                                {field.value?.length > 0 ? (
-                                                    users.filter(u => field.value.includes(u.id)).map(user => (
-                                                        <Badge key={user.id} variant="secondary" className="mr-1">
-                                                            {user.name}
-                                                        </Badge>
-                                                    ))
-                                                ) : "Select managers..."}
+                                                {isLoadingUsers ? "Loading managers..." :
+                                                    field.value?.length > 0 ? (
+                                                        users.filter(u => field.value.includes(u.id)).map(user => (
+                                                            <Badge key={user.id} variant="secondary" className="mr-1">
+                                                                {user.name}
+                                                            </Badge>
+                                                        ))
+                                                    ) : "Select managers..."}
                                             </div>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
@@ -153,15 +156,17 @@ export function NewSiteForm({ onNewSite, users, isLoadingUsers }: NewSiteFormPro
                                                 "w-full justify-between h-auto min-h-10",
                                                 !field.value?.length && "text-muted-foreground"
                                             )}
+                                            disabled={isLoadingCerts}
                                             >
                                             <div className="flex flex-wrap gap-1">
-                                                {field.value?.length > 0 ? (
-                                                    field.value.map(cert => (
-                                                        <Badge key={cert} variant="secondary" className="mr-1">
-                                                            {cert}
-                                                        </Badge>
-                                                    ))
-                                                ) : "Select required certificates..."}
+                                                {isLoadingCerts ? "Loading certificates..." :
+                                                    field.value?.length > 0 ? (
+                                                        field.value.map(cert => (
+                                                            <Badge key={cert} variant="secondary" className="mr-1">
+                                                                {cert}
+                                                            </Badge>
+                                                        ))
+                                                    ) : "Select required certificates..."}
                                             </div>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
@@ -175,25 +180,25 @@ export function NewSiteForm({ onNewSite, users, isLoadingUsers }: NewSiteFormPro
                                         <CommandGroup>
                                         {certificateTypes.map((cert) => (
                                             <CommandItem
-                                            value={cert}
-                                            key={cert}
+                                            value={cert.name}
+                                            key={cert.id}
                                             onSelect={() => {
                                                 const currentValues = form.getValues("requiredCertificates") || [];
-                                                const newValue = currentValues.includes(cert)
-                                                    ? currentValues.filter(c => c !== cert)
-                                                    : [...currentValues, cert];
+                                                const newValue = currentValues.includes(cert.name)
+                                                    ? currentValues.filter(c => c !== cert.name)
+                                                    : [...currentValues, cert.name];
                                                 form.setValue("requiredCertificates", newValue, { shouldValidate: true });
                                             }}
                                             >
                                             <Check
                                                 className={cn(
                                                 "mr-2 h-4 w-4",
-                                                field.value?.includes(cert)
+                                                field.value?.includes(cert.name)
                                                     ? "opacity-100"
                                                     : "opacity-0"
                                                 )}
                                             />
-                                            {cert}
+                                            {cert.name}
                                             </CommandItem>
                                         ))}
                                         </CommandGroup>

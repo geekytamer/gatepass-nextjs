@@ -73,6 +73,15 @@
             "requiredCertificates": { "type": "array", "items": { "type": "string" } }
         },
         "required": ["name", "managerIds", "requiredCertificates"]
+    },
+    "CertificateType": {
+        "title": "Certificate Type",
+        "description": "Represents a type of certificate that can be required.",
+        "type": "object",
+        "properties": {
+            "name": { "type": "string" }
+        },
+        "required": ["name"]
     }
   },
   "auth": {
@@ -94,6 +103,10 @@
     "/sites/{siteId}": {
         "schema": { "$ref": "#/entities/Site" },
         "description": "Stores information about different sites."
+    },
+    "/certificateTypes/{certificateId}": {
+        "schema": { "$ref": "#/entities/CertificateType" },
+        "description": "Stores all manageable certificate types."
     }
   }
 }

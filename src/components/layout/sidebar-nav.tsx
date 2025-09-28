@@ -21,7 +21,6 @@ import {
   LogOut,
   QrCode as QrCodeIcon,
   ShieldCheck,
-  Building,
   Building2,
   FileBadge,
 } from 'lucide-react';
@@ -32,7 +31,6 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/access-requests', label: 'Access Requests', icon: ClipboardList },
-  { href: '/visitors', label: 'Visitors & Workers', icon: Building },
   { href: '/sites', label: 'Site Management', icon: Building2 },
   { href: '/certificates', label: 'Certificates', icon: FileBadge },
   { href: '/users', label: 'User Management', icon: Users },

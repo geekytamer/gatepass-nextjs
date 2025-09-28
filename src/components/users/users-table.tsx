@@ -20,7 +20,7 @@ import type { User, UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Paperclip, ShieldCheck, AlertTriangle, Contact } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { format, isBefore, parseISO } from 'date-fns';
+import Image from 'next/image';
 
 interface UsersTableProps {
   users: User[];
@@ -170,6 +171,24 @@ export function UsersTable({ users, isLoading }: UsersTableProps) {
                               </DialogContent>
                           </Dialog>
                        )}
+                        {user.idCardImageUrl && (
+                          <Dialog>
+                              <DialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                      <Contact className="h-4 w-4" />
+                                      <span className="sr-only">View ID Card</span>
+                                  </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                  <DialogHeader>
+                                      <DialogTitle>ID Card for {user.name}</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="mt-4">
+                                      <Image src={user.idCardImageUrl} alt={`ID Card for ${user.name}`} width={400} height={250} className="rounded-lg border object-contain w-full h-auto" />
+                                  </div>
+                              </DialogContent>
+                          </Dialog>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{user.email}</TableCell>

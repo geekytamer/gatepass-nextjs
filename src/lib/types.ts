@@ -16,6 +16,7 @@ export type User = {
   avatarUrl: string;
   company?: string;
   certificates?: Certificate[];
+  idCardImageUrl?: string;
 };
 
 export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';

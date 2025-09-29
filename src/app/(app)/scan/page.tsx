@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useState, useEffect } from 'react';
@@ -28,6 +29,7 @@ export default function ScanPage() {
     const [loadingSite, setLoadingSite] = useState(true);
     const [dialogState, setDialogState] = useState<DialogState>('closed');
     const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | null>(null);
+    const [isScannerPaused, setIsScannerPaused] = useState(false);
     
     const { toast } = useToast();
     const firestore = useFirestore();
@@ -56,6 +58,7 @@ export default function ScanPage() {
 
     const handleScanSuccess = async (userId: string) => {
         if (!firestore || !assignedSite) return;
+        setIsScannerPaused(true);
 
         try {
             const userRef = doc(firestore, "users", userId);
@@ -91,6 +94,7 @@ export default function ScanPage() {
              console.error(e);
              toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.'});
              setDialogState('closed');
+             setIsScannerPaused(false);
         }
     };
     
@@ -98,6 +102,7 @@ export default function ScanPage() {
         setDialogState('closed');
         setScannedUser(null);
         setAccessStatus(null);
+        setIsScannerPaused(false);
     }
     
     if (authLoading) {
@@ -131,7 +136,7 @@ export default function ScanPage() {
 
             <ScannerPreview 
                 onScanSuccess={handleScanSuccess} 
-                isPaused={dialogState !== 'closed'}
+                isPaused={isScannerPaused}
             />
         </div>
        

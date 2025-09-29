@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ScanLine, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -184,3 +184,5 @@ export default function ScanPage() {
     </div>
   );
 }
+
+    

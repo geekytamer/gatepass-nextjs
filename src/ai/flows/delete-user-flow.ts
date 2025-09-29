@@ -19,11 +19,12 @@ const DeleteUserInputSchema = z.object({
 
 export type DeleteUserInput = z.infer<typeof DeleteUserInputSchema>;
 
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
+function initializeFirebaseAdmin() {
+  if (!admin.apps.length) {
     // When running in a Google Cloud environment, the SDK will automatically
     // use the project's service account credentials.
     admin.initializeApp();
+  }
 }
 
 export async function deleteUser(input: DeleteUserInput): Promise<{ success: boolean; error?: string }> {
@@ -37,6 +38,8 @@ const deleteUserFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean(), error: z.string().optional() }),
   },
   async ({ uid }) => {
+    initializeFirebaseAdmin();
+    
     try {
       await admin.auth().deleteUser(uid);
       console.log(`Successfully deleted user with UID: ${uid} from Firebase Auth.`);

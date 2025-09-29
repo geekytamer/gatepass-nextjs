@@ -72,7 +72,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     });
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, router, memoizedAllowedRoles]);
+  }, [user, authLoading, firestore, memoizedAllowedRoles]);
 
   return {
     user,

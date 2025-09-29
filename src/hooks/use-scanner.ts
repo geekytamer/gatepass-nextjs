@@ -18,7 +18,7 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
 
   const startScanner = useCallback(() => {
-    if (!videoRef.current || !scannerRef.current || scannerRef.current.isScanning) {
+    if (!scannerRef.current || scannerRef.current.isScanning) {
       return;
     }
 
@@ -32,43 +32,44 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
       undefined 
     ).catch(err => {
       console.error('QR Scanner Start Error:', err);
-      toast({ variant: 'destructive', title: 'Scanner Error', description: 'Could not start the scanner.' });
+      // Don't toast here, as some errors are expected during startup/shutdown
       setIsScanning(false);
     });
-  }, [onScanSuccess, toast]);
+  }, [onScanSuccess]);
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current && scannerRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
       scannerRef.current.stop().then(() => {
         setIsScanning(false);
       }).catch(err => {
-        console.error('QR Scanner Stop Error:', err);
+        // This can error if the scanner is already stopped, so we can ignore it.
+        // console.error('QR Scanner Stop Error:', err);
       });
     }
   }, []);
 
-  // Effect for camera permissions
+  // Effect for camera permissions and scanner initialization
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         setHasPermission(true);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // IMPORTANT: Initialize the scanner library here, after the stream is attached
+          if (!scannerRef.current) {
+            scannerRef.current = new Html5Qrcode(videoRef.current.id);
+          }
         }
       })
       .catch(error => {
         console.error('Camera permission error:', error);
         setHasPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions to use the scanner.',
+        });
       });
-  }, []);
-
-  // Effect to initialize and cleanup the scanner
-  useEffect(() => {
-    if (hasPermission && videoRef.current) {
-        if (!scannerRef.current) {
-            scannerRef.current = new Html5Qrcode(videoRef.current.id);
-        }
-    }
     
     // Cleanup function
     return () => {
@@ -78,13 +79,14 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
             stream.getTracks().forEach(track => track.stop());
         }
     };
-  }, [hasPermission, stopScanner]);
+  }, [stopScanner, toast]);
+
 
   // Effect to control scanning state (pause/resume)
   useEffect(() => {
     if (isPaused) {
       stopScanner();
-    } else if (hasPermission && !isScanning) {
+    } else if (hasPermission && scannerRef.current && !isScanning) {
       startScanner();
     }
   }, [isPaused, hasPermission, isScanning, startScanner, stopScanner]);

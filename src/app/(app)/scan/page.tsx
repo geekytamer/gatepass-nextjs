@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import { useUser } from '@/firebase/auth/use-user';
 import { collection, doc, getDoc, addDoc, serverTimestamp, onSnapshot, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import type { User as UserType, Site, AccessRequest } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,23 +34,16 @@ type ScanState = 'scanning' | 'user-found' | 'no-user' | 'visitor-register';
 type AccessStatus = 'approved' | 'denied-no-request' | 'denied-access-issue';
 
 export default function ScanPage() {
-    // In a real app, the current user would come from an auth hook.
-    // For this prototype, we'll simulate a logged-in security user.
-    const currentSecurityUser: UserType = {
-      id: 'sec_001',
-      name: 'Security Guard',
-      email: 'security@gatepass.com',
-      role: 'Security',
-      avatarUrl: 'https://picsum.photos/seed/sec001/200/200',
-      assignedSiteId: 'site_001' // This user is assigned to "Main Headquarters"
-    };
-
+    const { user: authUser, loading: authLoading } = useUser();
+    const [currentSecurityUser, setCurrentSecurityUser] = useState<UserType | null>(null);
     const [scannedUser, setScannedUser] = useState<UserType | null>(null);
     const [assignedSite, setAssignedSite] = useState<Site | null>(null);
+    const [loadingUser, setLoadingUser] = useState(true);
     const [loadingSite, setLoadingSite] = useState(true);
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [scanState, setScanState] = useState<ScanState>('scanning');
     const [accessStatus, setAccessStatus] = useState<AccessStatus | null>(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -61,6 +55,33 @@ export default function ScanPage() {
     const idCardInputRef = useRef<HTMLInputElement>(null);
 
     const firestore = useFirestore();
+
+    // Fetch the current security user's profile
+    useEffect(() => {
+        if (!firestore || !authUser) {
+            if(!authLoading) setLoadingUser(false);
+            return;
+        }
+        setLoadingUser(true);
+        const userDocRef = doc(firestore, "users", authUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
+                if(userData.role === 'Security') {
+                    setCurrentSecurityUser(userData);
+                } else {
+                    // This page is for security users only
+                    setCurrentSecurityUser(null);
+                }
+            } else {
+                setCurrentSecurityUser(null);
+            }
+            setLoadingUser(false);
+        });
+
+        return () => unsubscribe();
+    }, [firestore, authUser, authLoading]);
+
 
     const stopScanner = useCallback(() => {
         if (scannerRef.current && scannerRef.current.isScanning) {
@@ -120,7 +141,7 @@ export default function ScanPage() {
 
     
     const startScanner = useCallback(() => {
-        if (isScanning || hasCameraPermission === false || !assignedSite || !firestore) {
+        if (isScanning || hasCameraPermission === false || !assignedSite || !firestore || typeof window === 'undefined') {
             return;
         }
 
@@ -137,30 +158,28 @@ export default function ScanPage() {
         ).catch(err => {
             console.error("Scanner start error:", err);
             setIsScanning(false);
-            setHasCameraPermission(false);
         });
 
     }, [isScanning, hasCameraPermission, assignedSite, firestore, handleScanSuccess]);
 
 
     useEffect(() => {
-        // Request camera permission on mount
-        Html5Qrcode.getCameras().then(devices => {
-            if (devices && devices.length) {
-                setHasCameraPermission(true);
-            } else {
-                setHasCameraPermission(false);
-            }
-        }).catch(() => {
-            setHasCameraPermission(false);
-        });
-    }, []);
+        // This entire effect runs only on the client
+        if (typeof window === 'undefined') return;
 
-    useEffect(() => {
-        // Start scanner when permission and site are ready
-        if (hasCameraPermission && assignedSite && !isScanning) {
-            startScanner();
-        }
+        const getCameraPermission = async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setHasCameraPermission(true);
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+            }
+          } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+          }
+        };
+        getCameraPermission();
 
         // Cleanup on unmount
         return () => {
@@ -168,11 +187,17 @@ export default function ScanPage() {
                 stopScanner();
             }
         };
-    }, [hasCameraPermission, assignedSite, isScanning, startScanner, stopScanner]);
+    }, [stopScanner]);
+
+     useEffect(() => {
+        if (hasCameraPermission && assignedSite && !isScanning) {
+            startScanner();
+        }
+    }, [hasCameraPermission, assignedSite, isScanning, startScanner]);
 
 
     useEffect(() => {
-        if (!firestore || !currentSecurityUser.assignedSiteId) {
+        if (!firestore || !currentSecurityUser?.assignedSiteId) {
             setLoadingSite(false);
             return;
         };
@@ -190,7 +215,7 @@ export default function ScanPage() {
         });
 
         return () => siteUnsub();
-    }, [firestore, currentSecurityUser.assignedSiteId, toast]);
+    }, [firestore, currentSecurityUser, toast]);
 
     const handleIdCardSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -217,6 +242,7 @@ export default function ScanPage() {
                 company: visitorCompany,
                 email: `visitor_${Date.now()}@gatepass.local`,
                 role: 'Visitor' as const,
+                status: 'Active' as const,
                 avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
                 idCardImageUrl: visitorIdCardImage,
                 createdAt: serverTimestamp()
@@ -279,6 +305,31 @@ export default function ScanPage() {
         }
         handleClose();
     }
+    
+    if (authLoading || loadingUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
+                <Skeleton className="w-full max-w-md h-16" />
+                <Skeleton className="w-full max-w-md aspect-video" />
+                <Skeleton className="h-10 w-48" />
+            </div>
+        )
+    }
+
+    if (!currentSecurityUser) {
+        return (
+             <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
+                 <Alert variant="destructive" className="max-w-md">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Access Denied</AlertTitle>
+                    <AlertDescription>
+                        This page is only available for users with the 'Security' role.
+                    </AlertDescription>
+                 </Alert>
+             </div>
+        )
+    }
+
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
@@ -296,25 +347,35 @@ export default function ScanPage() {
             </Card>
 
              <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border flex items-center justify-center">
-                 {hasCameraPermission === null ? (
+                 {hasCameraPermission === null && (
                     <div className="text-muted-foreground">Initializing Camera...</div>
-                 ) : hasCameraPermission && assignedSite ? (
-                    <div id={QR_SCANNER_ELEMENT_ID} className="w-full h-full [&>video]:w-full [&>video]:h-full [&>video]:object-cover [&>div>img]:hidden [&>div>button]:hidden" />
-                 ) : !assignedSite ? (
+                 )}
+                 
+                 <div id={QR_SCANNER_ELEMENT_ID} className={cn("w-full h-full", { 'hidden': !isScanning || !hasCameraPermission || !assignedSite })}></div>
+                 
+                 {hasCameraPermission && assignedSite && !isScanning && (
+                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                 )}
+
+                 {!assignedSite && hasCameraPermission && (
                     <div className="text-muted-foreground p-4">You must be assigned to a site to start scanning.</div>
-                 ) : (
+                 )}
+
+                 {hasCameraPermission === false && (
                     <div className="flex flex-col items-center gap-2 text-destructive p-4">
                         <CameraOff className="h-10 w-10" />
                         <span className="font-semibold">Camera Not Available</span>
                         <p className="text-sm text-muted-foreground">Could not access the camera. Please check your browser permissions.</p>
                     </div>
                  )}
-                 { hasCameraPermission && assignedSite && scanState === 'scanning' && (
+                 
+                 { isScanning && hasCameraPermission && assignedSite && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg shadow-inner-strong" style={{boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)'}}/>
+                        <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg" style={{boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)'}}/>
                     </div>
                 )}
             </Card>
+            
              { hasCameraPermission === false && (
                 <Alert variant="destructive" className="mt-4 text-left">
                         <AlertTitle>Camera Access Required</AlertTitle>

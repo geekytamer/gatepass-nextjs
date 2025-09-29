@@ -11,85 +11,56 @@ interface UseScannerProps {
 }
 
 export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
-  const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
-  const startScanner = useCallback(() => {
-    if (!scannerRef.current || scannerRef.current.isScanning) {
-      return;
-    }
-
-    setIsScanning(true);
-    scannerRef.current.start(
-      { facingMode: 'environment' },
-      { fps: 5, qrbox: { width: 250, height: 250 } },
-      (decodedText, decodedResult) => {
-        onScanSuccess(decodedText);
-      },
-      undefined 
-    ).catch(err => {
-      console.error('QR Scanner Start Error:', err);
-      // Don't toast here, as some errors are expected during startup/shutdown
-      setIsScanning(false);
-    });
-  }, [onScanSuccess]);
-
-  const stopScanner = useCallback(() => {
-    if (scannerRef.current && scannerRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-      scannerRef.current.stop().then(() => {
-        setIsScanning(false);
-      }).catch(err => {
-        // This can error if the scanner is already stopped, so we can ignore it.
-        // console.error('QR Scanner Stop Error:', err);
-      });
-    }
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasPermission(true);
+      } catch (err) {
+        console.error('Camera error', err);
+        setHasPermission(false);
+      }
+    };
+    init();
   }, []);
 
-  // Effect for camera permissions and scanner initialization
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        setHasPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          // IMPORTANT: Initialize the scanner library here, after the stream is attached
-          if (!scannerRef.current) {
-            scannerRef.current = new Html5Qrcode(videoRef.current.id);
-          }
-        }
-      })
-      .catch(error => {
-        console.error('Camera permission error:', error);
-        setHasPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions to use the scanner.',
-        });
-      });
-    
-    // Cleanup function
-    return () => {
-        stopScanner();
-        if (videoRef.current?.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
-        }
-    };
-  }, [stopScanner, toast]);
+    if (hasPermission !== true) return;
 
-
-  // Effect to control scanning state (pause/resume)
-  useEffect(() => {
-    if (isPaused) {
-      stopScanner();
-    } else if (hasPermission && scannerRef.current && !isScanning) {
-      startScanner();
+    if (!html5QrCodeRef.current) {
+      html5QrCodeRef.current = new Html5Qrcode('qr-scanner-container');
     }
-  }, [isPaused, hasPermission, isScanning, startScanner, stopScanner]);
 
-  return { videoRef, hasPermission, isScanning };
+    if (!isPaused) {
+      setIsScanning(true);
+      html5QrCodeRef.current.start(
+        { facingMode: 'environment' },
+        { fps: 5,},
+        (decodedText: string, decodedResult: any) => {
+          console.log("QR code detected:", decodedText);
+          onScanSuccess(decodedText);
+        },
+        (errorMessage: string) => {
+          // Called for scan errors, can safely ignore or log
+          // console.log("Scan error:", errorMessage);
+        }
+         )
+        .catch((err) => {
+          console.error('Scanner start error', err);
+          setIsScanning(false);
+        });
+    } else if (html5QrCodeRef.current.isScanning) {
+      html5QrCodeRef.current.stop().finally(() => setIsScanning(false));
+    }
+
+    return () => {
+      html5QrCodeRef.current?.stop().catch(() => {});
+    };
+  }, [isPaused, hasPermission, onScanSuccess]);
+
+  return { hasPermission, isScanning };
 }

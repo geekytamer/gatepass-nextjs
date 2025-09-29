@@ -14,12 +14,11 @@ interface ScannerPreviewProps {
 }
 
 export function ScannerPreview({ onScanSuccess, isPaused }: ScannerPreviewProps) {
-  const { videoRef, hasPermission, isScanning } = useScanner({ onScanSuccess, isPaused });
+  const { hasPermission, isScanning } = useScanner({ onScanSuccess, isPaused });
 
   return (
-    <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border flex items-center justify-center">
-      <video id="video-preview" ref={videoRef} className={cn("w-full h-full object-cover", hasPermission === false && 'hidden')} autoPlay playsInline muted />
-      
+    <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border">
+      <div id="qr-scanner-container" className="w-full h-full" />
       {hasPermission === null && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground p-4 bg-background/90">
             <Loader2 className="h-10 w-10 animate-spin" />

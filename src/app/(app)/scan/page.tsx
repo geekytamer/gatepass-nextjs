@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
+import { Toast } from '@radix-ui/react-toast';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
 

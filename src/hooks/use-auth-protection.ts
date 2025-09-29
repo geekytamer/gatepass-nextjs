@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore } from '@/firebase';
@@ -17,6 +16,9 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const router = useRouter();
   const firestore = useFirestore();
+
+  // Memoize allowedRoles to prevent useEffect from re-running unnecessarily
+  const memoizedAllowedRoles = useMemo(() => allowedRoles, [allowedRoles]);
 
   useEffect(() => {
     if (authLoading) {
@@ -38,20 +40,25 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
       if (docSnap.exists()) {
         const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
         setFirestoreUser(userData);
-        if (allowedRoles.includes(userData.role)) {
+        if (memoizedAllowedRoles.includes(userData.role)) {
           setIsAuthorized(true);
         } else {
           setIsAuthorized(false);
         }
       } else {
-        // This case might happen if the Firestore doc is deleted while user is logged in
         setIsAuthorized(false);
+        setFirestoreUser(null);
       }
       setLoading(false);
+    }, (error) => {
+        console.error("Error in auth protection snapshot: ", error);
+        setIsAuthorized(false);
+        setFirestoreUser(null);
+        setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, router, allowedRoles]);
+  }, [user, authLoading, firestore, router, memoizedAllowedRoles]);
 
   const UnauthorizedComponent = () => (
     <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">

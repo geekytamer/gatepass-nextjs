@@ -23,27 +23,28 @@ export default function ProfilePage() {
     const router = useRouter();
 
     useEffect(() => {
-        if (authLoading) return; // Wait until auth state is determined
-        if (!firestore || !authUser) {
-            setLoading(false); // No user, so stop loading
-            return;
-        };
-        
-        setLoading(true);
-        const userRef = doc(firestore, 'users', authUser.uid);
-        const unsubscribe = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setUser({ id: docSnap.id, ...docSnap.data() } as User);
-            } else {
-                setUser(null);
-            }
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching user profile:", error);
-            setLoading(false);
-        });
+        if (!authLoading && !authUser) {
+          setLoading(false);
+          return;
+        }
 
-        return () => unsubscribe();
+        if (firestore && authUser) {
+            const userRef = doc(firestore, 'users', authUser.uid);
+            const unsubscribe = onSnapshot(userRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    setUser({ id: docSnap.id, ...docSnap.data() } as User);
+                } else {
+                    setUser(null);
+                }
+                setLoading(false);
+            }, (error) => {
+                console.error("Error fetching user profile:", error);
+                setUser(null);
+                setLoading(false);
+            });
+
+            return () => unsubscribe();
+        }
     }, [firestore, authUser, authLoading]);
 
     const isCertificateExpired = (expiryDate?: string) => {
@@ -170,5 +171,7 @@ function ProfileSkeleton() {
         </div>
     );
 }
+
+    
 
     

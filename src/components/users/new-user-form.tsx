@@ -24,7 +24,6 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   company: z.string().optional(),
   email: z.string().email({ message: "Please enter a valid email." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
@@ -37,7 +36,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewUserFormProps {
-    onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl'>, password: string) => void;
+    onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl'>) => void;
     sites: Site[];
     isLoadingSites: boolean;
 }
@@ -54,7 +53,6 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             name: "",
             company: "",
             email: "",
-            password: "password",
             notes: "",
             role: "Worker",
             certificates: [],
@@ -90,14 +88,12 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
-        const { password, ...newUser } = values;
-
         onNewUser({
-            ...newUser,
+            ...values,
             role: values.role as UserRole,
             certificates: certificates,
             assignedSiteId: values.role === 'Security' ? values.assignedSiteId : undefined,
-        }, password);
+        });
 
         form.reset();
     }
@@ -106,14 +102,6 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-4">
                  <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
-                     <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>Temporary Password</AlertTitle>
-                        <AlertDescription>
-                            A new user will be created with an 'Inactive' status. Please inform them their temporary password is '<b>password</b>' and that they must change it upon first login to activate their account.
-                        </AlertDescription>
-                    </Alert>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="name" render={({ field }) => (
                             <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
@@ -141,18 +129,6 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
                             </FormItem>
                         )} />
                     </div>
-                    
-                    <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Temporary Password</FormLabel>
-                                <FormControl><Input type="text" {...field} disabled /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
 
                     {selectedRole === 'Security' && (
                        <FormField

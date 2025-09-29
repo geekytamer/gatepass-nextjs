@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { sendEmail } from '@/ai/flows/send-email-flow';
 
 
 export default function UsersPage() {
@@ -47,15 +48,22 @@ export default function UsersPage() {
     }
   }, [firestore]);
 
-  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status'>, password: string) => {
+    const generateTempPassword = () => {
+        // Generates an 8-character random password.
+        return Math.random().toString(36).slice(-8);
+    }
+
+  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status'>) => {
     if (!firestore || !app) {
         toast({ variant: "destructive", title: "Error", description: "Database not available." });
         return;
     }
     const auth = getAuth(app);
+    const tempPassword = generateTempPassword();
+
     try {
         // Step 1: Create the user in Firebase Authentication
-        const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, tempPassword);
         const authUser = userCredential.user;
 
         // Step 2: Create the user document in Firestore with the same UID
@@ -66,9 +74,28 @@ export default function UsersPage() {
             avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
             createdAt: serverTimestamp()
         });
-
+        
         toast({ title: "User Created", description: `${newUser.name} has been created with an inactive status.` });
         setIsFormOpen(false); // Close the dialog on success
+
+        // Step 3: Send the welcome email with the temporary password
+        const emailResult = await sendEmail({
+            to: newUser.email,
+            subject: 'Welcome to GatePass - Your Account has been Created',
+            body: `
+                <h1>Welcome to GatePass, ${newUser.name}!</h1>
+                <p>An administrator has created an account for you.</p>
+                <p>Your temporary password is: <strong>${tempPassword}</strong></p>
+                <p>Please log in and change your password immediately to activate your account.</p>
+            `,
+        });
+
+        if (emailResult.success) {
+            toast({ title: 'Welcome Email Sent', description: `Instructions have been sent to ${newUser.email}.` });
+        } else {
+             toast({ variant: "destructive", title: "Email Failed", description: `Could not send welcome email. Please provide the user their temporary password manually: ${tempPassword}` });
+        }
+
     } catch (error: any) {
         console.error("Error adding user: ", error);
         // Provide more specific feedback for common errors
@@ -98,7 +125,7 @@ export default function UsersPage() {
           <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>Create New User Profile</DialogTitle>
-                <DialogDescription>Enter the user's details below. They will be created with an 'Inactive' status and a temporary password.</DialogDescription>
+                <DialogDescription>Enter the user's details below. An email will be sent to them with a temporary password.</DialogDescription>
             </DialogHeader>
             <NewUserForm 
               onNewUser={addUser} 

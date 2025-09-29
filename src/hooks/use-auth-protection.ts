@@ -12,7 +12,7 @@ import { AlertTriangle } from 'lucide-react';
 
 function UnauthorizedComponent() {
   return (
-    <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">
+    <div className="flex items-center justify-center p-8">
       <Alert variant="destructive" className="max-w-md">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Access Denied</AlertTitle>
@@ -32,7 +32,6 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
   const router = useRouter();
   const firestore = useFirestore();
 
-  // Memoize allowedRoles to prevent useEffect from re-running unnecessarily
   const memoizedAllowedRoles = useMemo(() => new Set(allowedRoles), [allowedRoles]);
 
   useEffect(() => {

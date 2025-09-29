@@ -15,6 +15,35 @@ import { ShieldCheck, AlertTriangle, KeyRound } from 'lucide-react';
 import { format, isBefore, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
+
+function ProfileSkeleton() {
+    return (
+         <div className="space-y-4 md:space-y-6">
+            <header>
+                <Skeleton className="h-9 w-3/4" />
+                <Skeleton className="h-4 w-1/2 mt-2" />
+            </header>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-1 flex flex-col items-center justify-center p-6 md:p-8 text-center">
+                    <Skeleton className="h-24 w-24 rounded-full mb-4" />
+                    <Skeleton className="h-7 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-6 w-16 mt-4 rounded-full" />
+                </Card>
+                 <Card className="md:col-span-2">
+                    <CardHeader>
+                         <Skeleton className="h-7 w-1/2" />
+                         <Skeleton className="h-4 w-full mt-2" />
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-center p-4 sm:p-8">
+                        <Skeleton className="w-48 h-48 sm:w-64 sm:h-64" />
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
 export default function ProfilePage() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -142,34 +171,6 @@ export default function ProfilePage() {
       )}
     </div>
   );
-}
-
-function ProfileSkeleton() {
-    return (
-         <div className="space-y-4 md:space-y-6">
-            <header>
-                <Skeleton className="h-9 w-3/4" />
-                <Skeleton className="h-4 w-1/2 mt-2" />
-            </header>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-1 flex flex-col items-center justify-center p-6 md:p-8 text-center">
-                    <Skeleton className="h-24 w-24 rounded-full mb-4" />
-                    <Skeleton className="h-7 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-6 w-16 mt-4 rounded-full" />
-                </Card>
-                 <Card className="md:col-span-2">
-                    <CardHeader>
-                         <Skeleton className="h-7 w-1/2" />
-                         <Skeleton className="h-4 w-full mt-2" />
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-center p-4 sm:p-8">
-                        <Skeleton className="w-48 h-48 sm:w-64 sm:h-64" />
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
 }
 
     

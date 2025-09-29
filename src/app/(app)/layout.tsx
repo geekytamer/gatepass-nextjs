@@ -13,7 +13,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 
@@ -60,33 +60,54 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading, router]);
 
-  // Fetch Firestore user profile and check status
+  // Fetch Firestore user profile, create if it doesn't exist, and check status
   useEffect(() => {
-    if (!user || !firestore) return;
+    if (!user || !firestore) {
+        if (!authLoading) {
+            setUserStatusLoading(false);
+        }
+        return;
+    }
 
-    setUserStatusLoading(true);
     const userRef = doc(firestore, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+    
+    const unsubscribe = onSnapshot(userRef, async (docSnap) => {
         if (docSnap.exists()) {
             const userData = docSnap.data() as User;
             setFirestoreUser(userData);
+            setUserStatusLoading(false);
+            // Redirection logic based on status
             if (userData.status === 'Inactive' && pathname !== '/activate-account') {
                 router.push('/activate-account');
             } else if (userData.status === 'Active' && pathname === '/activate-account') {
                 router.push('/dashboard');
             }
         } else {
-            // If firestore user doesn't exist, maybe they are mid-creation.
-            // For now, we log an error and don't block them. A better approach
-            // might be to log them out.
-            console.error("Firestore user profile not found!");
-            setFirestoreUser(null);
+            // User exists in Auth but not in Firestore. Create the document.
+            console.log(`User document not found for UID ${user.uid}. Creating new profile.`);
+            try {
+                const newUserProfile: Omit<User, 'id'> = {
+                    name: user.email || 'New User',
+                    email: user.email!,
+                    role: 'Worker', // Secure default role
+                    status: 'Inactive', // Force password change
+                    avatarUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
+                };
+                await setDoc(userRef, newUserProfile);
+                // The onSnapshot listener will fire again with the new data,
+                // so we don't need to manually set state here. The component will re-render.
+            } catch (error) {
+                console.error("Failed to create user document in Firestore:", error);
+                setUserStatusLoading(false);
+            }
         }
+    }, (error) => {
+        console.error("Error fetching user profile:", error);
         setUserStatusLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, firestore, router, pathname]);
+  }, [user, firestore, router, pathname, authLoading]);
 
   const loading = authLoading || userStatusLoading;
 
@@ -95,7 +116,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   // If user is Inactive, only the activation page should render its specific layout (or none)
-  if (firestoreUser.status === 'Inactive') {
+  if (firestoreUser.status === 'Inactive' && pathname !== '/activate-account') {
       return <>{children}</>;
   }
 

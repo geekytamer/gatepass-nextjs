@@ -17,12 +17,11 @@ import {
   ClipboardList,
   Users,
   ScanLine,
-  User,
-  LogOut,
   QrCode as QrCodeIcon,
   ShieldCheck,
   Building2,
   FileBadge,
+  LogOut,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth, useFirestore } from '@/firebase';
@@ -30,19 +29,9 @@ import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase/auth/use-user';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { User as UserType } from '@/lib/types';
 
-
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/access-requests', label: 'Access Requests', icon: ClipboardList },
-  { href: '/sites', label: 'Site Management', icon: Building2 },
-  { href: '/certificates', label: 'Certificates', icon: FileBadge },
-  { href: '/users', label: 'User Management', icon: Users },
-  { href: '/scan', label: 'Scan', icon: ScanLine },
-  { href: '/profile', label: 'My QR Code', icon: QrCodeIcon },
-];
 
 const GatePassLogo = () => (
   <div className="flex items-center gap-3">
@@ -75,6 +64,24 @@ export function SidebarNav() {
     return () => unsubscribe();
   }, [authUser, firestore]);
   
+  const navItems = useMemo(() => {
+    const role = firestoreUser?.role;
+    if (!role) return [];
+
+    const allItems = [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Security', 'Worker', 'Visitor'] },
+      { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Manager', 'Worker'] },
+      { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin'] },
+      { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin'] },
+      { href: '/users', label: 'User Management', icon: Users, roles: ['Admin'] },
+      { href: '/scan', label: 'Scan', icon: ScanLine, roles: ['Security'] },
+      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Admin'] },
+    ];
+
+    return allItems.filter(item => item.roles.includes(role));
+  }, [firestoreUser]);
+
+
   const handleLogout = async () => {
     if (!auth) return;
     try {

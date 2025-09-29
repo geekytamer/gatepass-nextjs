@@ -1,18 +1,20 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { collection, onSnapshot, query, where, addDoc, doc, updateDoc, serverTimestamp, getDocs } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
 import { NewRequestForm } from "@/components/access-requests/new-request-form";
 import type { AccessRequest, Site } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthProtection } from "@/hooks/use-auth-protection";
+import { useFirestore } from "@/firebase";
 
 export default function AccessRequestsPage() {
-  const isManager = true; 
-  const currentUserId = 'usr_001'; // Assuming this is the current logged-in user. In a real app, this would come from auth.
+  const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Manager', 'Worker']);
+  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Admin', [firestoreUser]);
+  const currentUserId = authUser?.uid;
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -24,7 +26,7 @@ export default function AccessRequestsPage() {
   const [loadingSites, setLoadingSites] = useState(true);
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore || !currentUserId) return;
 
     // Fetch sites once
     const fetchSites = async () => {
@@ -61,38 +63,64 @@ export default function AccessRequestsPage() {
   }, [firestore, currentUserId]);
 
   useEffect(() => {
-    if (!firestore || !isManager || sites.length === 0) {
-      if(isManager) setLoadingPending(false);
+    if (!firestore || !isManager || !currentUserId) {
+      setLoadingPending(false);
       return;
     };
 
-    const managerSiteIds = sites.filter(s => s.managerIds.includes(currentUserId)).map(s => s.id);
+    setLoadingPending(true);
 
-    if (managerSiteIds.length === 0) {
-      setLoadingPending(false);
-      return;
+    const getManagedSiteIds = async () => {
+        let managedSiteIds: string[] = [];
+        if (firestoreUser?.role === 'Admin') {
+            const sitesSnapshot = await getDocs(collection(firestore, 'sites'));
+            managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
+        } else if (firestoreUser?.role === 'Manager') {
+            const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', currentUserId));
+            const sitesSnapshot = await getDocs(sitesQuery);
+            managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
+        }
+        return managedSiteIds;
+    };
+
+    const setupPendingRequestsListener = async () => {
+        const managerSiteIds = await getManagedSiteIds();
+
+        if (managerSiteIds.length === 0) {
+            setPendingRequests([]);
+            setLoadingPending(false);
+            return;
+        }
+
+        const pendingRequestsQuery = query(
+          collection(firestore, "accessRequests"), 
+          where("status", "==", "Pending"), 
+          where("siteId", "in", managerSiteIds)
+        );
+        
+        const unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
+          const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+          setPendingRequests(pending);
+          setLoadingPending(false);
+        }, (error) => {
+            console.error("Error fetching pending requests:", error);
+            setLoadingPending(false);
+        });
+
+        return unsubscribePendingRequests;
     }
 
-    setLoadingPending(true);
-    const pendingRequestsQuery = query(
-      collection(firestore, "accessRequests"), 
-      where("status", "==", "Pending"), 
-      where("siteId", "in", managerSiteIds)
-    );
-    
-    const unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
-      const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-      setPendingRequests(pending);
-      setLoadingPending(false);
-    }, (error) => {
-        console.error("Error fetching pending requests:", error);
-        setLoadingPending(false);
+    let unsubscribe: (() => void) | undefined;
+    setupPendingRequestsListener().then(unsub => {
+        if (unsub) unsubscribe = unsub;
     });
 
     return () => {
-      unsubscribePendingRequests();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     }
-  }, [firestore, isManager, sites, currentUserId])
+  }, [firestore, isManager, firestoreUser, currentUserId]);
 
 
   const handleAddRequest = async (newRequest: Omit<AccessRequest, 'id' | 'status' | 'requestedAt'>) => {
@@ -127,6 +155,14 @@ export default function AccessRequestsPage() {
         toast({ variant: "destructive", title: "Action Failed", description: "Could not update the request status." });
     }
   }
+  
+  if (authLoading || !firestoreUser) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthorized) {
+    return <UnauthorizedComponent />;
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -135,22 +171,25 @@ export default function AccessRequestsPage() {
         <p className="text-muted-foreground">Manage, submit, and approve access requests.</p>
       </header>
       <Tabs defaultValue="my-requests">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:grid-cols-3">
+        <TabsList className={`grid w-full ${isManager ? 'grid-cols-3' : 'grid-cols-2'} md:w-auto`}>
           <TabsTrigger value="my-requests">My Requests</TabsTrigger>
-          <TabsTrigger value="new-request">New Request</TabsTrigger>
+          {firestoreUser.role === 'Worker' && <TabsTrigger value="new-request">New Request</TabsTrigger>}
+          {isManager && <TabsTrigger value="new-request">New Request</TabsTrigger>}
           {isManager && <TabsTrigger value="approve">Approve Requests</TabsTrigger>}
         </TabsList>
         <TabsContent value="my-requests">
             <RequestsTable title="My Past Requests" description="A log of your submitted access requests." requests={currentUserRequests} isLoading={loading} />
         </TabsContent>
-        <TabsContent value="new-request">
-            <NewRequestForm 
-              currentUserId={currentUserId} 
-              onNewRequest={handleAddRequest}
-              sites={sites}
-              isLoadingSites={loadingSites}
-            />
-        </TabsContent>
+        {(firestoreUser.role === 'Worker' || isManager) && (
+            <TabsContent value="new-request">
+                <NewRequestForm 
+                currentUserId={currentUserId!} 
+                onNewRequest={handleAddRequest}
+                sites={sites}
+                isLoadingSites={loadingSites}
+                />
+            </TabsContent>
+        )}
         {isManager && (
             <TabsContent value="approve">
                 <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onAction={handleRequestAction} isLoading={loadingPending} />

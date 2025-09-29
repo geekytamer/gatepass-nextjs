@@ -15,12 +15,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { FileBadge, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 const formSchema = z.object({
   name: z.string().min(3, { message: "Certificate name must be at least 3 characters." }),
 });
 
 export default function CertificatesPage() {
+    const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
@@ -32,7 +34,7 @@ export default function CertificatesPage() {
     });
 
     useEffect(() => {
-        if (!firestore) return;
+        if (!firestore || !firestoreUser) return;
         setLoading(true);
         const unsubscribe = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
             const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
@@ -40,7 +42,7 @@ export default function CertificatesPage() {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [firestore]);
+    }, [firestore, firestoreUser]);
 
     const handleAddCertificate = async (values: z.infer<typeof formSchema>) => {
         if (!firestore) {
@@ -74,6 +76,14 @@ export default function CertificatesPage() {
             toast({ variant: "destructive", title: "Deletion Error", description: "Could not remove certificate type." });
         }
     };
+    
+    if (authLoading || !firestoreUser) {
+        return <div>Loading...</div>;
+    }
+
+    if (!isAuthorized) {
+        return <UnauthorizedComponent />;
+    }
 
     return (
         <div className="space-y-4 md:space-y-6">

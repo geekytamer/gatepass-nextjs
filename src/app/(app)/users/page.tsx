@@ -14,9 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { sendEmail } from '@/ai/flows/send-email-flow';
-
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function UsersPage() {
+  const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function UsersPage() {
   const app = useFirebaseApp();
 
   useEffect(() => {
-    if (!firestore) {
+    if (!firestore || !firestoreUser) {
         setLoading(false);
         setLoadingSites(false);
         return;
@@ -51,7 +52,7 @@ export default function UsersPage() {
         unsubscribe();
         sitesUnsub();
     }
-  }, [firestore]);
+  }, [firestore, firestoreUser]);
 
     const generateTempPassword = () => {
         const length = 10;
@@ -78,7 +79,7 @@ export default function UsersPage() {
 
         // Step 2: Create the user document in Firestore with the UID as the document ID
         const userRef = doc(firestore, "users", authUser.uid);
-        const userData: Omit<User, 'id'> & { id: string } = {
+        const userData: Partial<User> = {
             ...newUser,
             id: authUser.uid,
             status: 'Inactive', // Set status to Inactive
@@ -87,6 +88,8 @@ export default function UsersPage() {
         
         if (newUser.role !== 'Security') {
           delete userData.assignedSiteId;
+        } else {
+          userData.assignedSiteId = newUser.assignedSiteId;
         }
 
         await setDoc(userRef, userData);
@@ -122,6 +125,14 @@ export default function UsersPage() {
         }
     }
   };
+
+  if (authLoading || !firestoreUser) {
+    return <div>Loading...</div>;
+  }
+  
+  if (!isAuthorized) {
+    return <UnauthorizedComponent />;
+  }
 
 
   return (

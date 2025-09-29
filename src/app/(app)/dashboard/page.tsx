@@ -1,9 +1,21 @@
 
+'use client';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { ActivityChart } from '@/components/dashboard/activity-chart';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function DashboardPage() {
+    const { loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Manager', 'Security', 'Worker', 'Visitor']);
+    
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+    
+    if (!isAuthorized) {
+        return <UnauthorizedComponent />;
+    }
+
   return (
     <div className="space-y-4 md:space-y-6">
       <header>

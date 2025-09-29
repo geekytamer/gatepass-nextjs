@@ -9,8 +9,10 @@ import { SitesTable } from "@/components/sites/sites-table";
 import { NewSiteForm } from "@/components/sites/new-site-form";
 import type { Site, User, CertificateType } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function SitesPage() {
+  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
@@ -21,7 +23,7 @@ export default function SitesPage() {
   const firestore = useFirestore();
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore || !firestoreUser) return;
 
     setLoadingSites(true);
     const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
@@ -49,7 +51,7 @@ export default function SitesPage() {
       usersUnsub();
       certsUnsub();
     };
-  }, [firestore]);
+  }, [firestore, firestoreUser]);
 
   const handleAddSite = async (newSite: Omit<Site, 'id'>) => {
     if (!firestore) {
@@ -68,6 +70,14 @@ export default function SitesPage() {
     }
   };
 
+  if (loading || !firestoreUser) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthorized) {
+    return <UnauthorizedComponent />;
+  }
+  
   return (
     <div className="space-y-4 md:space-y-6">
        <header>

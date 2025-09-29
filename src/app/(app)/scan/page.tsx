@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { ScanLine, Check, LogOut, User, Building, X, CameraOff, AlertTriangle, FileSearch, ShieldX, UserPlus, Camera as CameraIcon } from 'lucide-react';
 import {
@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const QR_SCANNER_ELEMENT_ID = 'qr-scanner';
 
@@ -84,18 +85,18 @@ export default function ScanPage() {
 
 
     const stopScanner = useCallback(() => {
-        if (scannerRef.current && scannerRef.current.isScanning) {
-            scannerRef.current.stop().then(() => {
-                setIsScanning(false);
-            }).catch(err => console.error("Failed to stop scanner", err));
-        } else {
-             setIsScanning(false);
-        }
+      if (scannerRef.current && scannerRef.current.isScanning) {
+          scannerRef.current.stop().then(() => {
+              setIsScanning(false);
+              scannerRef.current = null;
+          }).catch(err => console.error("Failed to stop scanner", err));
+      } else {
+           setIsScanning(false);
+      }
     }, []);
 
     const handleScanSuccess = useCallback(async (decodedText: string) => {
         if (!firestore || !assignedSite) return;
-        stopScanner();
         
         try {
             const userRef = doc(firestore, "users", decodedText);
@@ -137,7 +138,7 @@ export default function ScanPage() {
              toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.'});
              handleClose();
         }
-    }, [firestore, assignedSite, stopScanner, toast]);
+    }, [firestore, assignedSite, toast]);
 
     
     const startScanner = useCallback(() => {
@@ -145,22 +146,28 @@ export default function ScanPage() {
             return;
         }
 
-        const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, { verbose: false });
+        const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID);
         scannerRef.current = scanner;
+        
+        const successCallback = (decodedText: string) => {
+            stopScanner();
+            handleScanSuccess(decodedText);
+        }
+
         setIsScanning(true);
         setScanState('scanning');
 
         scanner.start(
             { facingMode: "environment" },
             { fps: 5, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
-            handleScanSuccess,
+            successCallback,
             () => {} // qrCodeErrorCallback is optional
         ).catch(err => {
             console.error("Scanner start error:", err);
             setIsScanning(false);
         });
 
-    }, [isScanning, hasCameraPermission, assignedSite, firestore, handleScanSuccess]);
+    }, [isScanning, hasCameraPermission, assignedSite, firestore, handleScanSuccess, stopScanner]);
 
 
     useEffect(() => {
@@ -183,17 +190,15 @@ export default function ScanPage() {
 
         // Cleanup on unmount
         return () => {
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                stopScanner();
-            }
+           stopScanner();
         };
     }, [stopScanner]);
 
      useEffect(() => {
-        if (hasCameraPermission && assignedSite && !isScanning) {
+        if (hasCameraPermission && assignedSite && !isScanning && scanState === 'scanning') {
             startScanner();
         }
-    }, [hasCameraPermission, assignedSite, isScanning, startScanner]);
+    }, [hasCameraPermission, assignedSite, isScanning, startScanner, scanState]);
 
 
     useEffect(() => {
@@ -282,7 +287,6 @@ export default function ScanPage() {
         if (idCardInputRef.current) {
             idCardInputRef.current.value = '';
         }
-        startScanner();
     }
     
     const handleActivity = async (type: 'Check-in' | 'Check-out') => {

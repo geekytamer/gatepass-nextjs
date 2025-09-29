@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore } from '@/firebase';
@@ -32,6 +32,9 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
   const router = useRouter();
   const firestore = useFirestore();
 
+  // Memoize allowedRoles to prevent useEffect from re-running unnecessarily
+  const memoizedAllowedRoles = useMemo(() => new Set(allowedRoles), [allowedRoles]);
+
   useEffect(() => {
     if (authLoading) {
       return;
@@ -52,7 +55,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
       if (docSnap.exists()) {
         const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
         setFirestoreUser(userData);
-        if (allowedRoles.includes(userData.role)) {
+        if (memoizedAllowedRoles.has(userData.role)) {
           setIsAuthorized(true);
         } else {
           setIsAuthorized(false);
@@ -70,7 +73,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     });
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, router, allowedRoles]);
+  }, [user, authLoading, firestore, router, memoizedAllowedRoles]);
 
   return {
     user,

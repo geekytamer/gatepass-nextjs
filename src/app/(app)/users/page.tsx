@@ -63,7 +63,7 @@ export default function UsersPage() {
         return password;
     }
 
-  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status'>) => {
+  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' >) => {
     if (!firestore || !app) {
         toast({ variant: "destructive", title: "Error", description: "Database not available." });
         return;
@@ -78,12 +78,18 @@ export default function UsersPage() {
 
         // Step 2: Create the user document in Firestore with the UID as the document ID
         const userRef = doc(firestore, "users", authUser.uid);
-        await setDoc(userRef, {
+        const userData: Omit<User, 'id'> & { id: string } = {
             ...newUser,
             id: authUser.uid,
             status: 'Inactive', // Set status to Inactive
             avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
-        });
+        };
+        
+        if (newUser.role !== 'Security') {
+          delete userData.assignedSiteId;
+        }
+
+        await setDoc(userRef, userData);
         
         toast({ title: "User Created", description: `${newUser.name} has been created with an inactive status.` });
         setIsFormOpen(false); // Close the dialog on success

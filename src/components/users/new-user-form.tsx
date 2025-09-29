@@ -88,12 +88,17 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
-        onNewUser({
+        const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl'> = {
             ...values,
             role: values.role as UserRole,
             certificates: certificates,
-            assignedSiteId: values.role === 'Security' ? values.assignedSiteId : undefined,
-        });
+        };
+        
+        if(values.role !== 'Security') {
+            delete newUser.assignedSiteId;
+        }
+
+        onNewUser(newUser);
 
         form.reset();
     }

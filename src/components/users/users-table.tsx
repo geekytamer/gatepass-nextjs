@@ -16,7 +16,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { User, UserRole, Site } from '@/lib/types';
+import type { User, UserRole, Site, UserStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,6 +57,14 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
       )
     );
   };
+  
+  const handleStatusChange = (userId: string, newStatus: UserStatus) => {
+    setUserList(prevUsers =>
+      prevUsers.map(user =>
+        user.id === userId ? { ...user, status: newStatus } : user
+      )
+    );
+  };
 
   const handleSave = async (userId: string) => {
     if (!firestore) return;
@@ -66,30 +74,32 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
     
     try {
       const userRef = doc(firestore, "users", userId);
-      // We only allow role changes from this table for now. 
-      // More complex edits would need a dedicated edit form.
-      await updateDoc(userRef, { role: userToSave.role });
+      // We only allow role and status changes from this table for now. 
+      await updateDoc(userRef, { 
+        role: userToSave.role,
+        status: userToSave.status
+       });
       
       toast({
         title: 'User Updated',
-        description: `${userToSave.name}'s role has been saved.`,
+        description: `${userToSave.name}'s profile has been saved.`,
       });
       setOriginalUsers(prev => prev.map(u => u.id === userId ? userToSave : u));
     } catch(error) {
-      console.error("Error updating user role:", error);
+      console.error("Error updating user profile:", error);
       toast({
         title: 'Update Failed',
-        description: `Could not update ${userToSave.name}'s role.`,
+        description: `Could not update ${userToSave.name}'s profile.`,
         variant: 'destructive',
       });
       setUserList(originalUsers);
     }
   };
 
-  const isRoleChanged = (userId: string) => {
+  const isChanged = (userId: string) => {
     const originalUser = originalUsers.find(u => u.id === userId);
     const currentUser = userList.find(u => u.id === userId);
-    return originalUser && currentUser && originalUser.role !== currentUser.role;
+    return originalUser && currentUser && (originalUser.role !== currentUser.role || originalUser.status !== currentUser.status);
   }
   
   const isCertificateExpired = (expiryDate?: string) => {
@@ -102,11 +112,17 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
     return sites.find(s => s.id === siteId)?.name || 'Unknown Site';
   }
 
+  const statusColorClasses: Record<UserStatus, string> = {
+    Active: 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30',
+    Inactive: 'bg-yellow-500/20 text-yellow-700 border-transparent hover:bg-yellow-500/30',
+  };
+
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>All Users</CardTitle>
-        <CardDescription>A list of all users in the system. You can manage their roles here.</CardDescription>
+        <CardDescription>A list of all users in the system. You can manage their roles and status here.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -116,6 +132,7 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
                 <TableHead>User</TableHead>
                 <TableHead className="hidden sm:table-cell">Details</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -125,6 +142,7 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
                   <TableRow key={i}>
                     <TableCell><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-5 w-24" /></div></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-[120px]" /></TableCell>
                     <TableCell><Skeleton className="h-9 w-[120px]" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-9 w-16 ml-auto" /></TableCell>
                   </TableRow>
@@ -218,8 +236,19 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                     <TableCell>
+                      <Select value={user.status} onValueChange={(newStatus: UserStatus) => handleStatusChange(user.id, newStatus)}>
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="Active">Active</SelectItem>
+                           <SelectItem value="Inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" onClick={() => handleSave(user.id)} disabled={!isRoleChanged(user.id)}>
+                      <Button variant="outline" onClick={() => handleSave(user.id)} disabled={!isChanged(user.id)}>
                         Save
                       </Button>
                     </TableCell>

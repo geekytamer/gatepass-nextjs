@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { useFirestore } from '@/firebase';
+import { useFirebaseApp, useFirestore } from '@/firebase';
 import { collection, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { User, UserRole, Certificate, Site } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +12,7 @@ import { NewUserForm } from '@/components/users/new-user-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
 
 export default function UsersPage() {
@@ -22,6 +23,7 @@ export default function UsersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const app = useFirebaseApp();
 
   useEffect(() => {
     if (!firestore) return;
@@ -45,22 +47,36 @@ export default function UsersPage() {
     }
   }, [firestore]);
 
-  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl'>) => {
-    if (!firestore) {
+  const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status'>, password: string) => {
+    if (!firestore || !app) {
         toast({ variant: "destructive", title: "Error", description: "Database not available." });
         return;
     }
+    const auth = getAuth(app);
     try {
+        // Step 1: Create the user in Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, password);
+        const authUser = userCredential.user;
+
+        // Step 2: Create the user document in Firestore with the same UID
         await addDoc(collection(firestore, "users"), {
             ...newUser,
+            id: authUser.uid, // Explicitly set the document ID to match the auth UID
+            status: 'Inactive',
             avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
             createdAt: serverTimestamp()
         });
-         toast({ title: "User Created", description: `A new profile for ${newUser.name} has been created.` });
-         setIsFormOpen(false); // Close the dialog on success
-    } catch (error) {
+
+        toast({ title: "User Created", description: `${newUser.name} has been created with an inactive status.` });
+        setIsFormOpen(false); // Close the dialog on success
+    } catch (error: any) {
         console.error("Error adding user: ", error);
-        toast({ variant: "destructive", title: "Creation Error", description: "Could not create user profile." });
+        // Provide more specific feedback for common errors
+        if (error.code === 'auth/email-already-in-use') {
+            toast({ variant: "destructive", title: "Creation Error", description: "This email address is already in use by another account." });
+        } else {
+            toast({ variant: "destructive", title: "Creation Error", description: "Could not create user profile." });
+        }
     }
   };
 
@@ -82,7 +98,7 @@ export default function UsersPage() {
           <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
                 <DialogTitle>Create New User Profile</DialogTitle>
-                <DialogDescription>Enter the user's details below to create a new profile.</DialogDescription>
+                <DialogDescription>Enter the user's details below. They will be created with an 'Inactive' status and a temporary password.</DialogDescription>
             </DialogHeader>
             <NewUserForm 
               onNewUser={addUser} 

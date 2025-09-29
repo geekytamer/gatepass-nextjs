@@ -2,6 +2,7 @@
 import type { Timestamp } from "firebase/firestore";
 
 export type UserRole = 'Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker';
+export type UserStatus = 'Active' | 'Inactive';
 
 export type Certificate = {
   name: string;
@@ -13,6 +14,7 @@ export type User = {
   name: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   avatarUrl: string;
   company?: string;
   certificates?: Certificate[];

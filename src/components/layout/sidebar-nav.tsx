@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -25,8 +25,14 @@ import {
   FileBadge,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useAuth, useFirestore } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase/auth/use-user';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import type { User as UserType } from '@/lib/types';
+
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -49,6 +55,41 @@ const GatePassLogo = () => (
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const auth = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user: authUser } = useUser();
+  const firestore = useFirestore();
+  const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
+
+  useEffect(() => {
+    if (!authUser || !firestore) return;
+    const userRef = doc(firestore, 'users', authUser.uid);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+            setFirestoreUser(docSnap.data() as UserType);
+        } else {
+            setFirestoreUser(null);
+        }
+    });
+    return () => unsubscribe();
+  }, [authUser, firestore]);
+  
+  const handleLogout = async () => {
+    if (!auth) return;
+    try {
+      await signOut(auth);
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout Error:', error);
+      toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not log you out. Please try again.' });
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  }
 
   return (
     <>
@@ -83,17 +124,17 @@ export function SidebarNav() {
         <Separator className="bg-sidebar-border/50 my-2" />
         <div className="flex items-center gap-3 p-2">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={PlaceHolderImages[0].imageUrl} alt="Admin User" data-ai-hint={PlaceHolderImages[0].imageHint} />
-            <AvatarFallback>AU</AvatarFallback>
+            {firestoreUser && <AvatarImage src={firestoreUser.avatarUrl} alt={firestoreUser.name} />}
+            <AvatarFallback>{firestoreUser ? getInitials(firestoreUser.name) : '...'}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-semibold text-sm text-sidebar-foreground">Admin User</span>
-            <span className="text-xs text-sidebar-foreground/70">admin@gatepass.com</span>
+            <span className="font-semibold text-sm text-sidebar-foreground">{firestoreUser?.name || 'Loading...'}</span>
+            <span className="text-xs text-sidebar-foreground/70">{firestoreUser?.email || ''}</span>
           </div>
         </div>
          <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton tooltip={{children: 'Logout', side: 'right'}}>
+                <SidebarMenuButton onClick={handleLogout} tooltip={{children: 'Logout', side: 'right'}}>
                   <LogOut/>
                   <span>Logout</span>
                 </SidebarMenuButton>

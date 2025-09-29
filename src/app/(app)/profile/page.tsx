@@ -1,27 +1,39 @@
 
 'use client';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { QrCode } from '@/components/qr-code';
 import { useFirestore } from '@/firebase';
+import { useUser } from '@/firebase/auth/use-user';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, KeyRound } from 'lucide-react';
 import { format, isBefore, parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const firestore = useFirestore();
-    const userId = 'usr_001'; // In a real app, this would come from an auth hook
+    const { user: authUser, loading: authLoading } = useUser(); 
+    const router = useRouter();
 
     useEffect(() => {
-        if (!firestore || !userId) return;
+        if (!firestore || !authUser) {
+          // If there's no authenticated user, we can't fetch a profile.
+          // Depending on app logic, you might want to redirect to login here
+          // if authUser is definitively null after authLoading is false.
+          if (!authUser && !authLoading) {
+            setLoading(false);
+          }
+          return;
+        };
         setLoading(true);
-        const userRef = doc(firestore, 'users', userId);
+        const userRef = doc(firestore, 'users', authUser.uid);
         const unsubscribe = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
                 setUser({ id: docSnap.id, ...docSnap.data() } as User);
@@ -31,7 +43,7 @@ export default function ProfilePage() {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [firestore, userId]);
+    }, [firestore, authUser, authLoading]);
 
     const isCertificateExpired = (expiryDate?: string) => {
         if (!expiryDate) return false;
@@ -60,10 +72,17 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
-        <p className="text-muted-foreground">Present this QR code at any gate for scanning.</p>
+      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
+            <p className="text-muted-foreground">Present this QR code at any gate for scanning.</p>
+        </div>
+        <Button onClick={() => router.push('/activate-account')}>
+            <KeyRound className="mr-2 h-4 w-4"/>
+            Change Password
+        </Button>
       </header>
+
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-1 flex flex-col items-center justify-center p-6 md:p-8 text-center">

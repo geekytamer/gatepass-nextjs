@@ -41,11 +41,10 @@ export function StatsCards() {
             });
             unsubs.push(usersUnsub);
 
-            const requestsUnsub = onSnapshot(collection(firestore, 'accessRequests'), (snapshot) => {
-                const requests = snapshot.docs.map(doc => doc.data() as AccessRequest);
+            const requestsUnsub = onSnapshot(query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending')), (snapshot) => {
                 setStats(prev => ({
                     ...prev,
-                    pendingRequests: requests.filter(r => r.status === 'Pending').length
+                    pendingRequests: snapshot.size
                 }));
             });
             unsubs.push(requestsUnsub);
@@ -105,10 +104,10 @@ export function StatsCards() {
         
         return () => unsubs.forEach(unsub => unsub());
 
-    }, [firestore, firestoreUser]);
+    }, [firestore, firestoreUser?.id, firestoreUser?.role]);
 
 
-    if (authLoading || (loading && firestoreUser?.role === 'Admin')) {
+    if (authLoading || (loading && (firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Manager'))) {
         return (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {[...Array(4)].map((_, i) => (

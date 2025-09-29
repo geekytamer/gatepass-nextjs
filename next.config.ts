@@ -31,9 +31,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  devServer: {
-    port: 8011,
-  },
 };
 
 export default nextConfig;

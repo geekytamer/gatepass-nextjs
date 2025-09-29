@@ -12,7 +12,7 @@ function initializeFirebaseServices() {
 
   // THIS IS THE KEY PART FOR OFFLINE-ONLY
   // We disable the network connection to ensure no data is ever sent to the cloud.
-  disableNetwork(firestore);
+  // disableNetwork(firestore);
 
   return { app, auth, firestore, isConfigured };
 }

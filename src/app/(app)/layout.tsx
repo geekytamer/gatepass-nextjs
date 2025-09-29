@@ -13,7 +13,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDocs, collection, query, limit, getDoc } from 'firebase/firestore';
 import type { User } from '@/lib/types';
 
 
@@ -60,20 +60,48 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading, router]);
 
-  // Fetch Firestore user profile, create if it doesn't exist, and check status
+  // Handle Firestore user profile: fetch, create if non-existent, and check status
   useEffect(() => {
     if (!user || !firestore) {
-        if (!authLoading) {
-            setUserStatusLoading(false);
-        }
+        if (!authLoading) setUserStatusLoading(false);
         return;
     }
 
     const userRef = doc(firestore, 'users', user.uid);
-    
-    const unsubscribe = onSnapshot(userRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const userData = docSnap.data() as User;
+    let unsubscribe: () => void;
+
+    const manageUserProfile = async () => {
+        const docSnap = await getDoc(userRef);
+
+        if (!docSnap.exists()) {
+             // User exists in Auth but not in Firestore. Create the document.
+            console.log(`User document not found for UID ${user.uid}. Creating new profile.`);
+            try {
+                // Check if this is the very first user to determine their role.
+                const usersQuery = query(collection(firestore, "users"), limit(1));
+                const existingUsersSnapshot = await getDocs(usersQuery);
+                const isFirstUser = existingUsersSnapshot.empty;
+                const role = isFirstUser ? 'Admin' : 'Worker';
+
+                const newUserProfile: Omit<User, 'id'> = {
+                    name: user.email || 'New User',
+                    email: user.email!,
+                    role: role, 
+                    status: 'Inactive', 
+                    avatarUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
+                };
+                await setDoc(userRef, newUserProfile);
+                console.log(`Created new user profile with role: ${role}`);
+            } catch (error) {
+                console.error("Failed to create user document in Firestore:", error);
+                setUserStatusLoading(false);
+                return; // Stop execution if profile creation fails
+            }
+        }
+        
+        // At this point, the user doc is guaranteed to exist, so we can listen to it.
+        unsubscribe = onSnapshot(userRef, (doc) => {
+            const userData = doc.data() as User;
             setFirestoreUser(userData);
             setUserStatusLoading(false);
             // Redirection logic based on status
@@ -82,31 +110,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             } else if (userData.status === 'Active' && pathname === '/activate-account') {
                 router.push('/dashboard');
             }
-        } else {
-            // User exists in Auth but not in Firestore. Create the document.
-            console.log(`User document not found for UID ${user.uid}. Creating new profile.`);
-            try {
-                const newUserProfile: Omit<User, 'id'> = {
-                    name: user.email || 'New User',
-                    email: user.email!,
-                    role: 'Worker', // Secure default role
-                    status: 'Inactive', // Force password change
-                    avatarUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
-                };
-                await setDoc(userRef, newUserProfile);
-                // The onSnapshot listener will fire again with the new data,
-                // so we don't need to manually set state here. The component will re-render.
-            } catch (error) {
-                console.error("Failed to create user document in Firestore:", error);
-                setUserStatusLoading(false);
-            }
-        }
-    }, (error) => {
-        console.error("Error fetching user profile:", error);
-        setUserStatusLoading(false);
-    });
+        }, (error) => {
+            console.error("Error fetching user profile:", error);
+            setUserStatusLoading(false);
+        });
+    }
 
-    return () => unsubscribe();
+    manageUserProfile();
+
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
   }, [user, firestore, router, pathname, authLoading]);
 
   const loading = authLoading || userStatusLoading;

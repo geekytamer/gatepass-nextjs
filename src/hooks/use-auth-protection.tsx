@@ -1,8 +1,7 @@
-
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -10,37 +9,23 @@ import type { User as UserType, UserRole } from '@/lib/types';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
-function UnauthorizedComponent() {
-  return (
-    <div className="flex items-center justify-center p-8">
-      <Alert variant="destructive" className="max-w-md">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Access Denied</AlertTitle>
-        <AlertDescription>
-          You do not have permission to view this page.
-        </AlertDescription>
-      </Alert>
-    </div>
-  );
-}
-
 export function useAuthProtection(allowedRoles: UserRole[]) {
   const { user, loading: authLoading } = useUser();
   const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const firestore = useFirestore();
 
-  const memoizedAllowedRoles = useMemo(() => new Set(allowedRoles), [allowedRoles]);
-
   useEffect(() => {
-    if (authLoading) {
-      return;
-    }
+    if (authLoading) return;
 
     if (!user) {
-      router.push('/login');
+      // prevent redirect loop if already on /login
+      if (pathname !== '/login') {
+        router.push('/login');
+      }
       return;
     }
 
@@ -50,29 +35,41 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     }
 
     const userRef = doc(firestore, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
-        setFirestoreUser(userData);
-        if (memoizedAllowedRoles.has(userData.role)) {
-          setIsAuthorized(true);
+    const unsubscribe = onSnapshot(
+      userRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
+          setFirestoreUser(userData);
+          setIsAuthorized(allowedRoles.includes(userData.role));
         } else {
           setIsAuthorized(false);
+          setFirestoreUser(null);
         }
-      } else {
-        setIsAuthorized(false);
-        setFirestoreUser(null);
-      }
-      setLoading(false);
-    }, (error) => {
-        console.error("Error in auth protection snapshot: ", error);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error in auth protection snapshot: ', error);
         setIsAuthorized(false);
         setFirestoreUser(null);
         setLoading(false);
-    });
+      }
+    );
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, memoizedAllowedRoles]);
+  }, [user, authLoading, firestore, router, pathname, allowedRoles.join(',')]);
+
+  const UnauthorizedComponent = () => (
+    <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">
+      <Alert variant="destructive" className="max-w-md">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Access Denied</AlertTitle>
+        <AlertDescription>
+          You do not have permission to view this page.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
 
   return {
     user,

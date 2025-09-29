@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useFirebaseApp, useFirestore } from '@/firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import type { User, UserRole, Certificate, Site } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { UsersTable } from '@/components/users/users-table';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { sendEmail } from '@/ai/flows/send-email-flow';
+import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user-flow';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function UsersPage() {
@@ -126,6 +127,26 @@ export default function UsersPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!firestore) return;
+
+    try {
+      // Use the Genkit flow to delete the user from Auth
+      const result = await deleteUserFlow({ uid: userId });
+
+      if (result.success) {
+         // Also delete from Firestore collection
+        await deleteDoc(doc(firestore, "users", userId));
+        toast({ title: "User Deleted", description: `${userName} has been permanently removed.` });
+      } else {
+        throw new Error(result.error || 'Failed to delete user from authentication.');
+      }
+    } catch (error) {
+      console.error("Error deleting user: ", error);
+      toast({ variant: "destructive", title: "Deletion Failed", description: `Could not delete ${userName}.` });
+    }
+  };
+
   if (authLoading || !firestoreUser) {
     return <div>Loading...</div>;
   }
@@ -166,6 +187,7 @@ export default function UsersPage() {
           users={users}
           sites={sites}
           isLoading={loading || loadingSites}
+          onDeleteUser={handleDeleteUser}
         />
     </div>
   );

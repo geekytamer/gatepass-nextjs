@@ -20,7 +20,7 @@ import type { User, UserRole, Site, UserStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building } from 'lucide-react';
+import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format, isBefore, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Badge } from '../ui/badge';
@@ -36,9 +47,10 @@ interface UsersTableProps {
   users: User[];
   sites: Site[];
   isLoading: boolean;
+  onDeleteUser: (userId: string, userName: string) => void;
 }
 
-export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
+export function UsersTable({ users, sites, isLoading, onDeleteUser }: UsersTableProps) {
   const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
   const [userList, setUserList] = useState<User[]>([]);
   const [originalUsers, setOriginalUsers] = useState<User[]>([]);
@@ -247,10 +259,31 @@ export function UsersTable({ users, sites, isLoading }: UsersTableProps) {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" onClick={() => handleSave(user.id)} disabled={!isChanged(user.id)}>
+                    <TableCell className="text-right space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => handleSave(user.id)} disabled={!isChanged(user.id)}>
                         Save
                       </Button>
+                       <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" className="h-9 w-9">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the user account for {user.name} and remove all associated data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => onDeleteUser(user.id, user.name)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))

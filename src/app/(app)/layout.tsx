@@ -9,9 +9,12 @@ import {
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import { useUser } from '@/firebase/auth/use-user';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useFirestore } from '@/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import type { User } from '@/lib/types';
 
 
 function AppLoadingSkeleton() {
@@ -43,19 +46,59 @@ function AppLoadingSkeleton() {
 
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, loading } = useUser();
+  const { user, loading: authLoading } = useUser();
+  const [firestoreUser, setFirestoreUser] = useState<User | null>(null);
+  const [userStatusLoading, setUserStatusLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const firestore = useFirestore();
 
+  // Redirect unauthenticated users to login
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
+  // Fetch Firestore user profile and check status
+  useEffect(() => {
+    if (!user || !firestore) return;
 
-  if (loading || !user) {
+    setUserStatusLoading(true);
+    const userRef = doc(firestore, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const userData = docSnap.data() as User;
+            setFirestoreUser(userData);
+            if (userData.status === 'Inactive' && pathname !== '/activate-account') {
+                router.push('/activate-account');
+            } else if (userData.status === 'Active' && pathname === '/activate-account') {
+                router.push('/dashboard');
+            }
+        } else {
+            // If firestore user doesn't exist, maybe they are mid-creation.
+            // For now, we log an error and don't block them. A better approach
+            // might be to log them out.
+            console.error("Firestore user profile not found!");
+            setFirestoreUser(null);
+        }
+        setUserStatusLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, firestore, router, pathname]);
+
+  const loading = authLoading || userStatusLoading;
+
+  if (loading || !user || !firestoreUser) {
     return <AppLoadingSkeleton />;
   }
+
+  // If user is Inactive, only the activation page should render its specific layout (or none)
+  if (firestoreUser.status === 'Inactive') {
+      return <>{children}</>;
+  }
+
 
   return (
     <SidebarProvider>

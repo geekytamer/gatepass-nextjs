@@ -14,7 +14,7 @@ export type User = {
   name: string;
   email: string;
   role: UserRole;
-  status: UserStatus;
+  status?: UserStatus; // Made optional for backward compatibility during transition
   avatarUrl: string;
   company?: string;
   certificates?: Certificate[];
@@ -41,7 +41,7 @@ export type AccessRequest = {
 export type GateActivity = {
   id: string;
   userId: string;
-  userName: string;
+  userName:string;
   userAvatar: string;
   timestamp: string; // Should be ISO string
   type: 'Check-in' | 'Check-out';

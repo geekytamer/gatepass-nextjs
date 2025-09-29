@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useFirebaseApp, useFirestore } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import type { User, UserRole, Certificate, Site } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { UsersTable } from '@/components/users/users-table';
@@ -49,8 +49,13 @@ export default function UsersPage() {
   }, [firestore]);
 
     const generateTempPassword = () => {
-        // Generates an 8-character random password.
-        return Math.random().toString(36).slice(-8);
+        const length = 10;
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
     }
 
   const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status'>) => {
@@ -66,13 +71,13 @@ export default function UsersPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, tempPassword);
         const authUser = userCredential.user;
 
-        // Step 2: Create the user document in Firestore with the same UID
-        await addDoc(collection(firestore, "users"), {
+        // Step 2: Create the user document in Firestore with the UID as the document ID
+        const userRef = doc(firestore, "users", authUser.uid);
+        await setDoc(userRef, {
             ...newUser,
-            id: authUser.uid, // Explicitly set the document ID to match the auth UID
-            status: 'Inactive',
+            id: authUser.uid,
+            status: 'Inactive', // Set status to Inactive
             avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
-            createdAt: serverTimestamp()
         });
         
         toast({ title: "User Created", description: `${newUser.name} has been created with an inactive status.` });

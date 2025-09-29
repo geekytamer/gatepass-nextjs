@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import {
   Card,
   CardContent,
@@ -101,28 +101,26 @@ export function ActivityChart() {
            </div>
         ) : (
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis
-                        dataKey="hour"
+                <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                    dataKey="hour"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value, index) => index % 3 === 0 ? value : ''}
+                    />
+                    <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        tickFormatter={(value, index) => index % 3 === 0 ? value : ''}
-                        />
-                        <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={8}
-                            width={30}
-                            allowDecimals={false}
-                        />
-                        <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                        <Bar dataKey="checkIn" fill="var(--color-checkIn)" radius={4} />
-                        <Bar dataKey="checkOut" fill="var(--color-checkOut)" radius={4} />
-                    </BarChart>
-            </ResponsiveContainer>
+                        width={30}
+                        allowDecimals={false}
+                    />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Bar dataKey="checkIn" fill="var(--color-checkIn)" radius={4} />
+                    <Bar dataKey="checkOut" fill="var(--color-checkOut)" radius={4} />
+                </BarChart>
             </ChartContainer>
         )}
       </CardContent>

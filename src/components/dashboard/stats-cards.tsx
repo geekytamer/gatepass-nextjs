@@ -105,7 +105,7 @@ export function StatsCards() {
         
         return () => unsubs.forEach(unsub => unsub());
 
-    }, [firestore, firestoreUser, loading]);
+    }, [firestore, firestoreUser]);
 
 
     if (authLoading || (loading && firestoreUser?.role === 'Admin')) {

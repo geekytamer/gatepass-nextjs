@@ -44,7 +44,6 @@ export default function ScanPage() {
     const { toast } = useToast();
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
     const [scanState, setScanState] = useState<ScanState>('scanning');
     const [accessStatus, setAccessStatus] = useState<AccessStatus | null>(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -83,21 +82,11 @@ export default function ScanPage() {
         return () => unsubscribe();
     }, [firestore, authUser, authLoading]);
 
-
-    const stopScanner = useCallback(() => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-          scannerRef.current.stop().then(() => {
-              setIsScanning(false);
-              scannerRef.current = null;
-          }).catch(err => console.error("Failed to stop scanner", err));
-      } else {
-           setIsScanning(false);
-      }
-    }, []);
-
     const handleScanSuccess = useCallback(async (decodedText: string) => {
         if (!firestore || !assignedSite) return;
         
+        setIsScanning(false);
+
         try {
             const userRef = doc(firestore, "users", decodedText);
             const userSnap = await getDoc(userRef);
@@ -140,47 +129,54 @@ export default function ScanPage() {
         }
     }, [firestore, assignedSite, toast]);
 
-    
+
     const startScanner = useCallback(() => {
-        if (isScanning || hasCameraPermission === false || !assignedSite || !firestore || typeof window === 'undefined') {
+        if (!scannerRef.current || isScanning || !hasCameraPermission || !assignedSite || typeof window === 'undefined') {
             return;
         }
 
-        const scanner = new Html5Qrcode(QR_SCANNER_ELEMENT_ID);
-        scannerRef.current = scanner;
-        
-        const successCallback = (decodedText: string) => {
-            stopScanner();
+        const successCallback = (decodedText: string, decodedResult: any) => {
+            if (scannerRef.current?.isScanning) {
+                scannerRef.current.stop().catch(err => console.error("Failed to stop scanner after success", err));
+            }
             handleScanSuccess(decodedText);
         }
 
         setIsScanning(true);
         setScanState('scanning');
 
-        scanner.start(
+        scannerRef.current.start(
             { facingMode: "environment" },
             { fps: 5, qrbox: {width: 250, height: 250}, useBarCodeDetectorIfSupported: true },
             successCallback,
-            () => {} // qrCodeErrorCallback is optional
+            undefined // qrCodeErrorCallback is optional
         ).catch(err => {
             console.error("Scanner start error:", err);
             setIsScanning(false);
         });
 
-    }, [isScanning, hasCameraPermission, assignedSite, firestore, handleScanSuccess, stopScanner]);
+    }, [isScanning, hasCameraPermission, assignedSite, handleScanSuccess]);
+
+
+    const stopScanner = useCallback(() => {
+        if (scannerRef.current && scannerRef.current.isScanning) {
+            scannerRef.current.stop().then(() => {
+                setIsScanning(false);
+            }).catch(err => console.error("Failed to stop scanner", err));
+        }
+    }, []);
 
 
     useEffect(() => {
-        // This entire effect runs only on the client
-        if (typeof window === 'undefined') return;
+        // Initialize the scanner instance once.
+        if (typeof window !== 'undefined' && !scannerRef.current) {
+            scannerRef.current = new Html5Qrcode(QR_SCANNER_ELEMENT_ID, { verbose: false });
+        }
 
         const getCameraPermission = async () => {
           try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            await navigator.mediaDevices.getUserMedia({ video: true });
             setHasCameraPermission(true);
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-            }
           } catch (error) {
             console.error('Error accessing camera:', error);
             setHasCameraPermission(false);
@@ -358,7 +354,7 @@ export default function ScanPage() {
                  <div id={QR_SCANNER_ELEMENT_ID} className={cn("w-full h-full", { 'hidden': !isScanning || !hasCameraPermission || !assignedSite })}></div>
                  
                  {hasCameraPermission && assignedSite && !isScanning && (
-                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                    <div className="text-muted-foreground">Ready to scan...</div>
                  )}
 
                  {!assignedSite && hasCameraPermission && (
@@ -397,10 +393,16 @@ export default function ScanPage() {
             </p>
         </div>
 
-        <Button size="lg" onClick={() => setScanState('visitor-register')} disabled={!assignedSite || loadingSite}>
-            <UserPlus className="mr-2 h-5 w-5" />
-            Register New Visitor
-        </Button>
+        <div className="space-x-4">
+            <Button size="lg" onClick={startScanner} disabled={!assignedSite || loadingSite || isScanning || hasCameraPermission !== true}>
+                <ScanLine className="mr-2 h-5 w-5" />
+                Start Scanner
+            </Button>
+            <Button size="lg" onClick={() => setScanState('visitor-register')} disabled={!assignedSite || loadingSite}>
+                <UserPlus className="mr-2 h-5 w-5" />
+                Register New Visitor
+            </Button>
+        </div>
 
         <Dialog open={scanState !== 'scanning'} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="sm:max-w-md">

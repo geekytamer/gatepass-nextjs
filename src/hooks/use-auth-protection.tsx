@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -57,7 +58,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     );
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, router, pathname, allowedRoles.join(',')]);
+  }, [user, authLoading, firestore, pathname, router]);
 
   const UnauthorizedComponent = () => (
     <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">

@@ -27,7 +27,12 @@ export default function UsersPage() {
   const app = useFirebaseApp();
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+        setLoading(false);
+        setLoadingSites(false);
+        return;
+    };
+    
     setLoading(true);
     const unsubscribe = onSnapshot(collection(firestore, "users"), (snapshot) => {
       const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));

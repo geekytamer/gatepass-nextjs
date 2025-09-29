@@ -55,27 +55,45 @@ export default function AccessRequestsPage() {
         setLoading(false);
     });
 
-    // Listener for pending requests (for managers)
-    let unsubscribePendingRequests = () => {};
-    if (isManager) {
-      setLoadingPending(true);
-      // For a manager, we now fetch requests for the sites they manage.
-      const pendingRequestsQuery = query(requestsCollection, where("status", "==", "Pending"), where("managerIds", "array-contains", currentUserId));
-      unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
-        const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-        setPendingRequests(pending);
-        setLoadingPending(false);
-      }, (error) => {
-          console.error("Error fetching pending requests:", error);
-          setLoadingPending(false);
-      });
-    }
-
     return () => {
       unsubscribeUserRequests();
-      unsubscribePendingRequests();
     };
-  }, [firestore, currentUserId, isManager]);
+  }, [firestore, currentUserId]);
+
+  useEffect(() => {
+    if (!firestore || !isManager || sites.length === 0) {
+      if(isManager) setLoadingPending(false);
+      return;
+    };
+
+    const managerSiteIds = sites.filter(s => s.managerIds.includes(currentUserId)).map(s => s.id);
+
+    if (managerSiteIds.length === 0) {
+      setLoadingPending(false);
+      return;
+    }
+
+    setLoadingPending(true);
+    const pendingRequestsQuery = query(
+      collection(firestore, "accessRequests"), 
+      where("status", "==", "Pending"), 
+      where("siteId", "in", managerSiteIds)
+    );
+    
+    const unsubscribePendingRequests = onSnapshot(pendingRequestsQuery, (snapshot) => {
+      const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+      setPendingRequests(pending);
+      setLoadingPending(false);
+    }, (error) => {
+        console.error("Error fetching pending requests:", error);
+        setLoadingPending(false);
+    });
+
+    return () => {
+      unsubscribePendingRequests();
+    }
+  }, [firestore, isManager, sites, currentUserId])
+
 
   const handleAddRequest = async (newRequest: Omit<AccessRequest, 'id' | 'status' | 'requestedAt'>) => {
      if (!firestore) {
@@ -83,12 +101,10 @@ export default function AccessRequestsPage() {
         return;
     }
     try {
-        const site = sites.find(s => s.id === newRequest.siteId);
         await addDoc(collection(firestore, "accessRequests"), {
             ...newRequest,
             status: 'Pending',
             requestedAt: serverTimestamp(),
-            managerIds: site?.managerIds || [] // Add managerIds for querying
         });
         // Toast is handled in the form component
     } catch (error) {

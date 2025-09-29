@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useState, useEffect } from 'react';
@@ -8,8 +7,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import type { User as UserType, Site, AccessRequest } from '@/lib/types';
-import { collection, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, Timestamp } from 'firebase/firestore';
+import type { User as UserType, Site, AccessRequest, GateActivity } from '@/lib/types';
+import { collection, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building, AlertTriangle } from 'lucide-react';
@@ -21,6 +20,7 @@ import { VisitorRegistrationDialog } from '@/components/scan/visitor-registratio
 import { Toast } from '@radix-ui/react-toast';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
+type LastActivity = 'Check-in' | 'Check-out' | null;
 
 export default function ScanPage() {
     const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
@@ -29,6 +29,7 @@ export default function ScanPage() {
     const [loadingSite, setLoadingSite] = useState(true);
     const [dialogState, setDialogState] = useState<DialogState>('closed');
     const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | null>(null);
+    const [lastActivity, setLastActivity] = useState<LastActivity>(null);
     const [isScannerPaused, setIsScannerPaused] = useState(false);
     
     const { toast } = useToast();
@@ -84,6 +85,22 @@ export default function ScanPage() {
                     // For non-workers, access is approved by default on successful scan
                     setAccessStatus('approved');
                 }
+
+                // Check user's last activity
+                const activityQuery = query(
+                    collection(firestore, 'gateActivity'),
+                    where('userId', '==', user.id),
+                    orderBy('timestamp', 'desc'),
+                    limit(1)
+                );
+                const activitySnap = await getDocs(activityQuery);
+                if (!activitySnap.empty) {
+                    const lastEvent = activitySnap.docs[0].data() as GateActivity;
+                    setLastActivity(lastEvent.type);
+                } else {
+                    setLastActivity(null); // No previous activity
+                }
+
                 setDialogState('user-found');
 
             } else {
@@ -102,6 +119,7 @@ export default function ScanPage() {
         setDialogState('closed');
         setScannedUser(null);
         setAccessStatus(null);
+        setLastActivity(null);
         setIsScannerPaused(false);
     }
     
@@ -160,6 +178,7 @@ export default function ScanPage() {
                     <UserFoundDialog 
                         scannedUser={scannedUser}
                         accessStatus={accessStatus}
+                        lastActivity={lastActivity}
                         assignedSite={assignedSite!}
                         onClose={handleCloseDialog}
                     />
@@ -184,5 +203,3 @@ export default function ScanPage() {
     </div>
   );
 }
-
-    

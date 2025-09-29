@@ -1,9 +1,7 @@
-
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
-import { useToast } from '@/hooks/use-toast';
 
 interface UseScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -35,30 +33,46 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
       html5QrCodeRef.current = new Html5Qrcode('qr-scanner-container');
     }
 
-    if (!isPaused) {
-      setIsScanning(true);
-      html5QrCodeRef.current.start(
-        { facingMode: 'environment' },
-        { fps: 5,},
-        (decodedText: string, decodedResult: any) => {
-          console.log("QR code detected:", decodedText);
-          onScanSuccess(decodedText);
-        },
-        (errorMessage: string) => {
-          // Called for scan errors, can safely ignore or log
-          // console.log("Scan error:", errorMessage);
-        }
-         )
-        .catch((err) => {
+    const qr = html5QrCodeRef.current;
+
+    const startScanner = async () => {
+      if (qr.getState() === Html5QrcodeScannerState.NOT_STARTED || qr.getState() === Html5QrcodeScannerState.STOPPED) {
+        try {
+          setIsScanning(true);
+          await qr.start(
+            { facingMode: 'environment' },
+            { fps: 5 },
+            (decodedText: string) => {
+              console.log("QR code detected:", decodedText);
+              onScanSuccess(decodedText);
+            }
+          );
+        } catch (err) {
           console.error('Scanner start error', err);
           setIsScanning(false);
-        });
-    } else if (html5QrCodeRef.current.isScanning) {
-      html5QrCodeRef.current.stop().finally(() => setIsScanning(false));
+        }
+      }
+    };
+
+    const stopScanner = async () => {
+      if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
+        try {
+          await qr.stop();
+          setIsScanning(false);
+        } catch (err) {
+          console.error("Error stopping scanner:", err);
+        }
+      }
+    };
+
+    if (!isPaused) {
+      startScanner();
+    } else {
+      stopScanner();
     }
 
     return () => {
-      html5QrCodeRef.current?.stop().catch(() => {});
+      stopScanner();
     };
   }, [isPaused, hasPermission, onScanSuccess]);
 

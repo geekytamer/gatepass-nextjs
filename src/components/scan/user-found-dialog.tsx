@@ -1,4 +1,3 @@
-
 'use client'
 
 import React from 'react';
@@ -11,16 +10,17 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { User, Site } from '@/lib/types';
-import { Check, LogOut, User, Building, X, AlertTriangle, ShieldX } from 'lucide-react';
+import { Check, LogOut, User, Building, X, AlertTriangle, ShieldX, LogIn } from 'lucide-react';
 
 interface UserFoundDialogProps {
   scannedUser: User;
   accessStatus: 'approved' | 'denied-no-request' | null;
+  lastActivity: 'Check-in' | 'Check-out' | null;
   assignedSite: Site;
   onClose: () => void;
 }
 
-export function UserFoundDialog({ scannedUser, accessStatus, assignedSite, onClose }: UserFoundDialogProps) {
+export function UserFoundDialog({ scannedUser, accessStatus, lastActivity, assignedSite, onClose }: UserFoundDialogProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -45,6 +45,8 @@ export function UserFoundDialog({ scannedUser, accessStatus, assignedSite, onClo
     onClose();
   };
 
+  const showCheckIn = lastActivity !== 'Check-in';
+
   return (
     <>
       <DialogHeader>
@@ -66,6 +68,11 @@ export function UserFoundDialog({ scannedUser, accessStatus, assignedSite, onClo
             <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
               <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
             </div>
+             {lastActivity && (
+                 <Badge variant={lastActivity === 'Check-in' ? 'default' : 'secondary'} className={lastActivity === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}>
+                    {lastActivity === 'Check-in' ? 'Currently On-Site' : 'Currently Off-Site'}
+                </Badge>
+            )}
           </div>
         </div>
         <div className="text-center space-y-4">
@@ -91,9 +98,12 @@ export function UserFoundDialog({ scannedUser, accessStatus, assignedSite, onClo
           )}
         </div>
       </div>
-      <DialogFooter className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
-        <Button onClick={() => handleActivity('Check-in')} disabled={accessStatus !== 'approved'}><Check className="mr-2 h-4 w-4" /> Check-in</Button>
+      <DialogFooter>
+        {showCheckIn ? (
+             <Button className="w-full" onClick={() => handleActivity('Check-in')} disabled={accessStatus !== 'approved'}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>
+        ) : (
+            <Button variant="outline" className="w-full" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
+        )}
       </DialogFooter>
        <DialogClose asChild>
           <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={onClose}>

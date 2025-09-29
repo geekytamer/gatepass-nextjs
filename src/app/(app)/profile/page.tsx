@@ -23,15 +23,12 @@ export default function ProfilePage() {
     const router = useRouter();
 
     useEffect(() => {
+        if (authLoading) return; // Wait until auth state is determined
         if (!firestore || !authUser) {
-          // If there's no authenticated user, we can't fetch a profile.
-          // Depending on app logic, you might want to redirect to login here
-          // if authUser is definitively null after authLoading is false.
-          if (!authUser && !authLoading) {
-            setLoading(false);
-          }
-          return;
+            setLoading(false); // No user, so stop loading
+            return;
         };
+        
         setLoading(true);
         const userRef = doc(firestore, 'users', authUser.uid);
         const unsubscribe = onSnapshot(userRef, (docSnap) => {
@@ -41,7 +38,11 @@ export default function ProfilePage() {
                 setUser(null);
             }
             setLoading(false);
+        }, (error) => {
+            console.error("Error fetching user profile:", error);
+            setLoading(false);
         });
+
         return () => unsubscribe();
     }, [firestore, authUser, authLoading]);
 
@@ -169,3 +170,5 @@ function ProfileSkeleton() {
         </div>
     );
 }
+
+    

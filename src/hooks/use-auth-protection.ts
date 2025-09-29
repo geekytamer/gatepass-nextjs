@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore } from '@/firebase';
@@ -9,6 +10,20 @@ import type { User as UserType, UserRole } from '@/lib/types';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
+function UnauthorizedComponent() {
+  return (
+    <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">
+      <Alert variant="destructive" className="max-w-md">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Access Denied</AlertTitle>
+        <AlertDescription>
+          You do not have permission to view this page.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
 export function useAuthProtection(allowedRoles: UserRole[]) {
   const { user, loading: authLoading } = useUser();
   const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
@@ -16,9 +31,6 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const router = useRouter();
   const firestore = useFirestore();
-
-  // Memoize allowedRoles to prevent useEffect from re-running unnecessarily
-  const memoizedAllowedRoles = useMemo(() => allowedRoles, [allowedRoles]);
 
   useEffect(() => {
     if (authLoading) {
@@ -40,7 +52,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
       if (docSnap.exists()) {
         const userData = { id: docSnap.id, ...docSnap.data() } as UserType;
         setFirestoreUser(userData);
-        if (memoizedAllowedRoles.includes(userData.role)) {
+        if (allowedRoles.includes(userData.role)) {
           setIsAuthorized(true);
         } else {
           setIsAuthorized(false);
@@ -58,19 +70,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     });
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, router, memoizedAllowedRoles]);
-
-  const UnauthorizedComponent = () => (
-    <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">
-        <Alert variant="destructive" className="max-w-md">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                You do not have permission to view this page.
-            </AlertDescription>
-        </Alert>
-    </div>
-  );
+  }, [user, authLoading, firestore, router, allowedRoles]);
 
   return {
     user,

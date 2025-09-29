@@ -12,9 +12,9 @@ import { NewUserForm } from '@/components/users/new-user-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user-flow';
+import { createUser as createUserFlow } from '@/ai/flows/create-user-flow';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function UsersPage() {
@@ -66,23 +66,31 @@ export default function UsersPage() {
     }
 
   const addUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' >) => {
-    if (!firestore || !app) {
+    if (!firestore) {
         toast({ variant: "destructive", title: "Error", description: "Database not available." });
         return;
     }
-    const auth = getAuth(app);
     const tempPassword = generateTempPassword();
 
     try {
-        // Step 1: Create the user in Firebase Authentication
-        const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, tempPassword);
-        const authUser = userCredential.user;
+        // Step 1: Create the user in Firebase Auth using the server-side flow
+        const authResult = await createUserFlow({
+            email: newUser.email,
+            password: tempPassword,
+            displayName: newUser.name,
+        });
+
+        if (!authResult.success || !authResult.uid) {
+            throw new Error(authResult.error || "Failed to create user in Firebase Auth.");
+        }
+        
+        const authUserUid = authResult.uid;
 
         // Step 2: Create the user document in Firestore with the UID as the document ID
-        const userRef = doc(firestore, "users", authUser.uid);
+        const userRef = doc(firestore, "users", authUserUid);
         const userData: Partial<User> = {
             ...newUser,
-            id: authUser.uid,
+            id: authUserUid,
             status: 'Inactive', // Set status to Inactive
             avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
         };
@@ -118,12 +126,11 @@ export default function UsersPage() {
 
     } catch (error: any) {
         console.error("Error adding user: ", error);
-        // Provide more specific feedback for common errors
-        if (error.code === 'auth/email-already-in-use') {
-            toast({ variant: "destructive", title: "Creation Error", description: "This email address is already in use by another account." });
-        } else {
-            toast({ variant: "destructive", title: "Creation Error", description: "Could not create user profile." });
-        }
+        toast({ 
+            variant: "destructive", 
+            title: "Creation Error", 
+            description: error.message || "Could not create user profile." 
+        });
     }
   };
 

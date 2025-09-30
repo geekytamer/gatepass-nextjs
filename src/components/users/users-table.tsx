@@ -2,9 +2,7 @@
 'use client';
 
 import React from 'react';
-import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -15,19 +13,24 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { User, UserRole, Site, UserStatus } from '@/lib/types';
+import type { User, Site, UserStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building, Trash2 } from 'lucide-react';
+import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building, Trash2, MoreHorizontal, Pencil } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,16 +45,8 @@ import {
 import { format, isBefore, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Badge } from '../ui/badge';
-import { UsersTable } from './users-table';
-import { NewUserForm } from './new-user-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { sendEmail } from '@/ai/flows/send-email-flow';
-import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user-flow';
-import { createUser as createUserFlow } from '@/ai/flows/create-user-flow';
-import { updateUser as updateUserFlow } from '@/ai/flows/update-user-flow';
-import { useAuthProtection } from '@/hooks/use-auth-protection';
+import { EditUserForm } from './edit-user-form';
+
 
 interface UsersTableProps {
   users: User[];

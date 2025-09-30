@@ -36,7 +36,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewUserFormProps {
-    onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl'>) => void;
+    onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'>) => void;
     sites: Site[];
     isLoadingSites: boolean;
 }
@@ -88,7 +88,7 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
-        const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl'> = {
+        const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'> = {
             ...values,
             role: values.role as UserRole,
             certificates: certificates,

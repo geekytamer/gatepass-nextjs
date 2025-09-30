@@ -176,6 +176,24 @@ export function UsersTable({ users, sites, isLoading, onDeleteUser, onUpdateUser
                                 </DialogContent>
                             </Dialog>
                           )}
+                           {user.idNumber && (
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                            <Contact className="h-4 w-4" />
+                                            <span className="sr-only">View ID Number</span>
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>ID Number for {user.name}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="mt-4 p-4 bg-muted rounded-md">
+                                          <p className="text-lg font-mono text-center tracking-wider">{user.idNumber}</p>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">

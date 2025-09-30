@@ -22,7 +22,8 @@ import { Calendar } from "../ui/calendar";
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   company: z.string().optional(),
-  email: z.string().email({ message: "Please enter a valid email." }),
+  email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
+  idNumber: z.string().optional(),
   role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
@@ -56,6 +57,7 @@ export function EditUserForm({ user, onUpdateUser, sites, isLoadingSites, closeD
             name: user.name || "",
             company: user.company || "",
             email: user.email || "",
+            idNumber: user.idNumber || "",
             notes: (user as any).notes || "",
             role: user.role || "Worker",
             status: user.status || "Inactive",
@@ -96,6 +98,8 @@ export function EditUserForm({ user, onUpdateUser, sites, isLoadingSites, closeD
             ...values,
             role: values.role,
             status: values.status,
+            email: values.email || undefined,
+            idNumber: values.idNumber || undefined,
             certificates: certificates,
         };
         
@@ -154,6 +158,10 @@ export function EditUserForm({ user, onUpdateUser, sites, isLoadingSites, closeD
                             </FormItem>
                         )} />
                     </div>
+
+                    <FormField control={form.control} name="idNumber" render={({ field }) => (
+                        <FormItem><FormLabel>ID Number (optional)</FormLabel><FormControl><Input placeholder="e.g. Driver's License #" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
 
                     {selectedRole === 'Security' && (
                        <FormField

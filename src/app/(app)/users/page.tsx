@@ -66,7 +66,7 @@ export default function UsersPage() {
         return password;
     }
 
-  const handleAddUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' >) => {
+  const handleAddUser = async (newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'>) => {
     if (!firestore) {
         toast({ variant: "destructive", title: "Error", description: "Database not available." });
         return;
@@ -76,7 +76,7 @@ export default function UsersPage() {
     try {
         // Step 1: Create the user in Firebase Auth using the server-side flow
         const authResult = await createUserFlow({
-            email: newUser.email,
+            email: newUser.email!,
             password: tempPassword,
             displayName: newUser.name,
         });
@@ -109,7 +109,7 @@ export default function UsersPage() {
 
         // Step 3: Send the welcome email with the temporary password
         const emailResult = await sendEmail({
-            to: newUser.email,
+            to: newUser.email!,
             subject: 'Welcome to GatePass - Your Account has been Created',
             body: `
                 <h1>Welcome to GatePass, ${newUser.name}!</h1>
@@ -143,7 +143,7 @@ export default function UsersPage() {
 
     try {
       const authUpdate: { uid: string, email?: string, displayName?: string } = { uid: userId };
-      if (updatedData.email !== originalUser.email) {
+      if (updatedData.email && updatedData.email !== originalUser.email) {
         authUpdate.email = updatedData.email;
       }
       if (updatedData.name !== originalUser.name) {

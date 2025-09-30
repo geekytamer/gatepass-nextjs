@@ -12,13 +12,14 @@ export type Certificate = {
 export type User = {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   role: UserRole;
   status?: UserStatus; // Made optional for backward compatibility during transition
   avatarUrl: string;
   company?: string;
   certificates?: Certificate[];
   idCardImageUrl?: string;
+  idNumber?: string; // For manually entered ID
   assignedSiteId?: string; // Add this to assign a security user to a site
 };
 

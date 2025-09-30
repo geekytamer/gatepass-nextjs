@@ -1,7 +1,6 @@
-
 'use client'
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Site } from '@/lib/types';
-import { Camera as CameraIcon, X } from 'lucide-react';
-import Image from 'next/image';
+import { X } from 'lucide-react';
 
 interface VisitorRegistrationDialogProps {
   assignedSite: Site;
@@ -20,27 +18,15 @@ interface VisitorRegistrationDialogProps {
 export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegistrationDialogProps) {
   const [visitorName, setVisitorName] = useState('');
   const [visitorCompany, setVisitorCompany] = useState('');
-  const [visitorIdCardImage, setVisitorIdCardImage] = useState<string | null>(null);
-  const idCardInputRef = useRef<HTMLInputElement>(null);
+  const [visitorEmail, setVisitorEmail] = useState('');
+  const [visitorIdNumber, setVisitorIdNumber] = useState('');
+  
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleIdCardSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select an image smaller than 2MB.' });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => setVisitorIdCardImage(e.target?.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleRegisterVisitorAndCheckIn = async () => {
-    if (!firestore || !visitorName || !visitorIdCardImage) {
-      toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide name and ID card image.' });
+    if (!firestore || !visitorName) {
+      toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide the visitor\'s name.' });
       return;
     }
     try {
@@ -48,11 +34,11 @@ export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegi
       const newUser = {
         name: visitorName,
         company: visitorCompany,
-        email: `visitor_${Date.now()}@gatepass.local`,
+        email: visitorEmail || `visitor_${Date.now()}@gatepass.local`,
         role: 'Visitor' as const,
         status: 'Active' as const,
         avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
-        idCardImageUrl: visitorIdCardImage,
+        idNumber: visitorIdNumber,
         createdAt: serverTimestamp()
       };
       const docRef = await addDoc(collection(firestore, "users"), newUser);
@@ -86,17 +72,13 @@ export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegi
       </DialogHeader>
 
       <div className="grid gap-4 py-4">
-        <Input placeholder="Full Name" value={visitorName} onChange={(e) => setVisitorName(e.target.value)} />
+        <Input placeholder="Full Name *" value={visitorName} onChange={(e) => setVisitorName(e.target.value)} />
         <Input placeholder="Company (Optional)" value={visitorCompany} onChange={(e) => setVisitorCompany(e.target.value)} />
-        <Input type="file" accept="image/*" capture="environment" className="hidden" ref={idCardInputRef} onChange={handleIdCardSelect} />
-        <Button variant="outline" onClick={() => idCardInputRef.current?.click()}>
-          <CameraIcon className="mr-2 h-4 w-4" />
-          {visitorIdCardImage ? 'Recapture ID Card' : 'Capture ID Card'}
-        </Button>
-        {visitorIdCardImage && <Image src={visitorIdCardImage} alt="ID card preview" width={200} height={125} className="rounded-md border object-contain mx-auto" />}
+        <Input type="email" placeholder="Email (Optional)" value={visitorEmail} onChange={(e) => setVisitorEmail(e.target.value)} />
+        <Input placeholder="ID Card or Driver's License # (Optional)" value={visitorIdNumber} onChange={(e) => setVisitorIdNumber(e.target.value)} />
       </div>
       <DialogFooter>
-        <Button onClick={handleRegisterVisitorAndCheckIn} disabled={!visitorName || !visitorIdCardImage}>Register and Check-in</Button>
+        <Button onClick={handleRegisterVisitorAndCheckIn} disabled={!visitorName}>Register and Check-in</Button>
       </DialogFooter>
       <DialogClose asChild>
           <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={onClose}>

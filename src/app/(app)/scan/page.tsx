@@ -7,20 +7,23 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import type { User as UserType, Site, AccessRequest, GateActivity } from '@/lib/types';
+import type { User as UserType, Site, AccessRequest, GateActivity, Certificate } from '@/lib/types';
 import { collection, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building, AlertTriangle } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { format } from 'date-fns';
+import { format, isBefore, parseISO } from 'date-fns';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
-import { Toast } from '@radix-ui/react-toast';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
 type LastActivity = 'Check-in' | 'Check-out' | null;
+type CertificateStatus = {
+    missing: string[];
+    expired: string[];
+};
 
 export default function ScanPage() {
     const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
@@ -29,6 +32,7 @@ export default function ScanPage() {
     const [loadingSite, setLoadingSite] = useState(true);
     const [dialogState, setDialogState] = useState<DialogState>('closed');
     const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | null>(null);
+    const [certificateStatus, setCertificateStatus] = useState<CertificateStatus>({ missing: [], expired: [] });
     const [lastActivity, setLastActivity] = useState<LastActivity>(null);
     const [isScannerPaused, setIsScannerPaused] = useState(false);
     
@@ -69,7 +73,7 @@ export default function ScanPage() {
                 const user = { id: userSnap.id, ...userSnap.data() } as UserType;
                 setScannedUser(user);
 
-                // Check for approved access request if the user is a 'Worker'
+                // 1. Check for approved access request (if worker)
                 if (user.role === 'Worker') {
                     const todayStr = format(new Date(), "yyyy-MM-dd");
                     const requestsQuery = query(
@@ -82,11 +86,26 @@ export default function ScanPage() {
                     const requestsSnap = await getDocs(requestsQuery);
                     setAccessStatus(requestsSnap.empty ? 'denied-no-request' : 'approved');
                 } else {
-                    // For non-workers, access is approved by default on successful scan
-                    setAccessStatus('approved');
+                    setAccessStatus('approved'); // Non-workers approved by default
                 }
+                
+                // 2. Check for required certificates
+                const requiredCerts = assignedSite.requiredCertificates || [];
+                const userCerts = user.certificates || [];
+                const missing: string[] = [];
+                const expired: string[] = [];
 
-                // Check user's last activity
+                requiredCerts.forEach(requiredCertName => {
+                    const userCert = userCerts.find(c => c.name === requiredCertName);
+                    if (!userCert) {
+                        missing.push(requiredCertName);
+                    } else if (userCert.expiryDate && isBefore(parseISO(userCert.expiryDate), new Date())) {
+                        expired.push(requiredCertName);
+                    }
+                });
+                setCertificateStatus({ missing, expired });
+
+                // 3. Check user's last activity
                 const activityQuery = query(
                     collection(firestore, 'gateActivity'),
                     where('userId', '==', user.id),
@@ -120,6 +139,7 @@ export default function ScanPage() {
         setScannedUser(null);
         setAccessStatus(null);
         setLastActivity(null);
+        setCertificateStatus({ missing: [], expired: [] });
         setIsScannerPaused(false);
     }
     
@@ -178,6 +198,7 @@ export default function ScanPage() {
                     <UserFoundDialog 
                         scannedUser={scannedUser}
                         accessStatus={accessStatus}
+                        certificateStatus={certificateStatus}
                         lastActivity={lastActivity}
                         assignedSite={assignedSite!}
                         onClose={handleCloseDialog}

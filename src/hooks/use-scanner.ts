@@ -66,7 +66,13 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
     };
 
     if (!isPaused) {
-      startScanner();
+      if (qr.getState() === Html5QrcodeScannerState.PAUSED) {
+        qr.resume()
+          .then(() => setIsScanning(true))
+          .catch(err => console.error("Resume failed", err));
+      } else {
+        startScanner();
+      }
     } else {
       stopScanner();
     }

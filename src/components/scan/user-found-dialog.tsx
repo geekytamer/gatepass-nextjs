@@ -10,17 +10,18 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { User, Site } from '@/lib/types';
-import { Check, LogOut, User, Building, X, AlertTriangle, ShieldX, LogIn } from 'lucide-react';
+import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, LogIn, FileWarning } from 'lucide-react';
 
 interface UserFoundDialogProps {
   scannedUser: User;
   accessStatus: 'approved' | 'denied-no-request' | null;
+  certificateStatus: { missing: string[], expired: string[] };
   lastActivity: 'Check-in' | 'Check-out' | null;
   assignedSite: Site;
   onClose: () => void;
 }
 
-export function UserFoundDialog({ scannedUser, accessStatus, lastActivity, assignedSite, onClose }: UserFoundDialogProps) {
+export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, onClose }: UserFoundDialogProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -46,6 +47,8 @@ export function UserFoundDialog({ scannedUser, accessStatus, lastActivity, assig
   };
 
   const showCheckIn = lastActivity !== 'Check-in';
+  const hasCertificateIssues = certificateStatus.missing.length > 0 || certificateStatus.expired.length > 0;
+  const isAccessGranted = accessStatus === 'approved' && !hasCertificateIssues;
 
   return (
     <>
@@ -63,7 +66,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, lastActivity, assig
           <div className="space-y-1 text-center sm:text-left">
             <h3 className="text-xl font-semibold">{scannedUser.name}</h3>
             <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
-              <User className="h-4 w-4" /> <span>{scannedUser.role}</span>
+              <UserIcon className="h-4 w-4" /> <span>{scannedUser.role}</span>
             </div>
             <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
               <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
@@ -75,32 +78,37 @@ export function UserFoundDialog({ scannedUser, accessStatus, lastActivity, assig
             )}
           </div>
         </div>
-        <div className="text-center space-y-4">
-          {accessStatus === 'approved' ? (
-            <Badge className="bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30 text-base py-1 px-3">
-              <Check className="mr-2 h-5 w-5" />
-              Access Approved
+        <div className="space-y-2">
+           <Badge className={`w-full justify-center text-base py-1 px-3 ${isAccessGranted ? 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30' : 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30'}`}>
+              {isAccessGranted ? <Check className="mr-2 h-5 w-5" /> : <ShieldX className="mr-2 h-5 w-5" />}
+              {isAccessGranted ? 'Access Approved' : 'Access Denied'}
             </Badge>
-          ) : (
-            <Badge variant="destructive" className="text-base py-1 px-3">
-              <ShieldX className="mr-2 h-5 w-5" />
-              Access Denied
-            </Badge>
-          )}
+
           {accessStatus === 'denied-no-request' && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>No Access Request Found</AlertTitle>
+              <AlertTitle>No Access Request</AlertTitle>
               <AlertDescription>
-                This worker does not have an approved access request for today at this site.
+                This worker does not have an approved access request for today.
               </AlertDescription>
             </Alert>
           )}
+
+           {hasCertificateIssues && (
+             <Alert variant="destructive">
+                <FileWarning className="h-4 w-4" />
+                <AlertTitle>Certificate Issue</AlertTitle>
+                <AlertDescription>
+                    {certificateStatus.missing.length > 0 && <div>Missing: {certificateStatus.missing.join(', ')}</div>}
+                    {certificateStatus.expired.length > 0 && <div>Expired: {certificateStatus.expired.join(', ')}</div>}
+                </AlertDescription>
+             </Alert>
+           )}
         </div>
       </div>
       <DialogFooter>
         {showCheckIn ? (
-             <Button className="w-full" onClick={() => handleActivity('Check-in')} disabled={accessStatus !== 'approved'}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>
+             <Button className="w-full" onClick={() => handleActivity('Check-in')} disabled={!isAccessGranted}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>
         ) : (
             <Button variant="outline" className="w-full" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
         )}

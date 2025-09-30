@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SitesTable } from "@/components/sites/sites-table";
 import { NewSiteForm } from "@/components/sites/new-site-form";
@@ -70,6 +70,21 @@ export default function SitesPage() {
     }
   };
 
+  const handleUpdateSite = async (siteId: string, updatedData: Partial<Omit<Site, 'id'>>) => {
+    if (!firestore) {
+      toast({ variant: "destructive", title: "Error", description: "Database not available." });
+      return;
+    }
+    try {
+      const siteRef = doc(firestore, 'sites', siteId);
+      await updateDoc(siteRef, updatedData);
+      toast({ title: "Site Updated", description: `The site "${updatedData.name}" has been updated.` });
+    } catch (error) {
+      console.error("Error updating site:", error);
+      toast({ variant: "destructive", title: "Update Error", description: "Could not update the site." });
+    }
+  };
+
   if (loading || !firestoreUser) {
     return <div>Loading...</div>;
   }
@@ -92,8 +107,10 @@ export default function SitesPage() {
         <TabsContent value="site-list">
             <SitesTable 
               sites={sites} 
-              users={users} 
-              isLoading={loadingSites || loadingUsers}
+              users={users}
+              certificateTypes={certificateTypes}
+              isLoading={loadingSites || loadingUsers || loadingCerts}
+              onUpdateSite={handleUpdateSite}
             />
         </TabsContent>
         <TabsContent value="new-site">

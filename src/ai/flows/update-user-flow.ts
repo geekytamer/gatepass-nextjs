@@ -10,6 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
+import { initializeApp } from 'firebase-admin/app';
 
 const UpdateUserInputSchema = z.object({
   uid: z.string().describe('The UID of the user to update.'),
@@ -20,9 +21,47 @@ const UpdateUserInputSchema = z.object({
 export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>;
 
 function initializeFirebaseAdmin() {
-  if (!admin.apps.length) {
-    admin.initializeApp();
-  }
+  if (admin.apps.length === 0) {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Option 1: JSON string env
+        const serviceAccount = JSON.parse(
+          process.env.FIREBASE_SERVICE_ACCOUNT as string
+        );
+        initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+      } else if (
+        process.env.FIREBASE_PROJECT_ID &&
+        process.env.FIREBASE_CLIENT_EMAIL &&
+        process.env.FIREBASE_PRIVATE_KEY
+      ) {
+        if (
+          !process.env.FIREBASE_PROJECT_ID ||
+          !process.env.FIREBASE_CLIENT_EMAIL ||
+          !process.env.FIREBASE_PRIVATE_KEY
+        ) {
+          throw new Error("Missing Firebase Admin env vars");
+        }
+  
+        if (!process.env.FIREBASE_PRIVATE_KEY.includes("BEGIN PRIVATE KEY")) {
+          throw new Error(
+            "FIREBASE_PRIVATE_KEY is present but formatted incorrectly (missing BEGIN PRIVATE KEY)"
+          );
+        }
+  
+        // Option 2: Split env vars
+        initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          }),
+        });
+      } else {
+        // Option 3: Google Cloud environment
+        initializeApp();
+      }
+    }
 }
 
 export async function updateUser(input: UpdateUserInput): Promise<{ success: boolean; error?: string }> {

@@ -13,9 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { sendEmail } from '@/ai/flows/send-email-flow';
-import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user-flow';
-import { createUser as createUserFlow } from '@/ai/flows/create-user-flow';
-import { updateUser as updateUserFlow } from '@/ai/flows/update-user-flow';
+import { serverCreateUser, serverUpdateUser, serverDeleteUser } from '@/app/actions/userActions';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function UsersPage() {
@@ -75,10 +73,10 @@ export default function UsersPage() {
 
     try {
         // Step 1: Create the user in Firebase Auth using the server-side flow
-        const authResult = await createUserFlow({
-            email: newUser.email!,
-            password: tempPassword,
-            displayName: newUser.name,
+        const authResult = await serverCreateUser({
+          email: newUser.email!,
+          password: tempPassword,
+          displayName: newUser.name,
         });
 
         if (!authResult.success || !authResult.uid) {
@@ -151,9 +149,11 @@ export default function UsersPage() {
       }
 
       if (authUpdate.email || authUpdate.displayName) {
-        const authResult = await updateUserFlow(authUpdate);
+        const authResult = await serverUpdateUser(authUpdate);
         if (!authResult.success) {
-          throw new Error(authResult.error || "Failed to update user in Firebase Auth.");
+          throw new Error(
+            authResult.error || "Failed to update user in Firebase Auth."
+          );
         }
       }
 
@@ -180,8 +180,7 @@ export default function UsersPage() {
 
     try {
       // Use the Genkit flow to delete the user from Auth
-      const result = await deleteUserFlow({ uid: userId });
-
+      const result = await serverDeleteUser({ uid: userId });
       if (result.success) {
          // Also delete from Firestore collection
         await deleteDoc(doc(firestore, "users", userId));

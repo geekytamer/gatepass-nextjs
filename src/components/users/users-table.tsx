@@ -393,7 +393,7 @@ export function UsersTable({
         </CardContent>
       </Card>
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User Profile</DialogTitle>
             <DialogDescription>

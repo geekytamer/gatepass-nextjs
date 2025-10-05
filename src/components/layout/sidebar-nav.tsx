@@ -69,7 +69,7 @@ export function SidebarNav() {
     if (!role) return [];
 
     const allItems = [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Security', 'Worker', 'Visitor'] },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Security'] },
       { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Manager', 'Worker'] },
       { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin'] },
       { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin'] },

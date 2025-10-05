@@ -1,8 +1,7 @@
+"use client";
 
-'use client';
-
-import React from 'react';
-import { useState } from 'react';
+import React from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,13 +9,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { User, Site, UserStatus } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, ShieldCheck, AlertTriangle, Contact, Building, Trash2, MoreHorizontal, Pencil } from 'lucide-react';
+} from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { User, Site, UserStatus } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Paperclip,
+  ShieldCheck,
+  AlertTriangle,
+  Contact,
+  Building,
+  Trash2,
+  MoreHorizontal,
+  Pencil,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +44,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,21 +56,30 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format, isBefore, parseISO } from 'date-fns';
-import Image from 'next/image';
-import { Badge } from '../ui/badge';
-import { EditUserForm } from './edit-user-form';
-
+import { format, isBefore, parseISO } from "date-fns";
+import Image from "next/image";
+import { Badge } from "../ui/badge";
+import { EditUserForm } from "./edit-user-form";
 
 interface UsersTableProps {
   users: User[];
   sites: Site[];
   isLoading: boolean;
   onDeleteUser: (userId: string, userName: string) => void;
-  onUpdateUser: (userId: string, originalUser: User, updatedData: Omit<User, 'id' | 'avatarUrl'>) => Promise<boolean>;
+  onUpdateUser: (
+    userId: string,
+    originalUser: User,
+    updatedData: Omit<User, "id" | "avatarUrl">
+  ) => Promise<boolean>;
 }
 
-export function UsersTable({ users, sites, isLoading, onDeleteUser, onUpdateUser }: UsersTableProps) {
+export function UsersTable({
+  users,
+  sites,
+  isLoading,
+  onDeleteUser,
+  onUpdateUser,
+}: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
@@ -64,22 +87,21 @@ export function UsersTable({ users, sites, isLoading, onDeleteUser, onUpdateUser
     setSelectedUser(user);
     setIsEditDialogOpen(true);
   };
-  
+
   const isCertificateExpired = (expiryDate?: string) => {
     if (!expiryDate) return false;
     return isBefore(parseISO(expiryDate), new Date());
   };
 
   const getSiteName = (siteId?: string) => {
-    if (!siteId) return 'N/A';
-    return sites.find(s => s.id === siteId)?.name || 'Unknown Site';
-  }
+    if (!siteId) return "N/A";
+    return sites.find((s) => s.id === siteId)?.name || "Unknown Site";
+  };
 
   const statusColors: Record<UserStatus, string> = {
-    'Active': 'bg-green-100 text-green-800',
-    'Inactive': 'bg-yellow-100 text-yellow-800',
-  }
-
+    Active: "bg-green-100 text-green-800",
+    Inactive: "bg-yellow-100 text-yellow-800",
+  };
 
   return (
     <>
@@ -161,7 +183,7 @@ export function UsersTable({ users, sites, isLoading, onDeleteUser, onUpdateUser
                                         </span>
                                       </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-xl">
+                                    <DialogContent className="w-[95vw] max-w-md sm:max-w-xl max-h-[85vh] overflow-y-auto">
                                       <DialogHeader>
                                         <DialogTitle>
                                           Certificates for {user.name}
@@ -371,7 +393,7 @@ export function UsersTable({ users, sites, isLoading, onDeleteUser, onUpdateUser
         </CardContent>
       </Card>
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User Profile</DialogTitle>
             <DialogDescription>

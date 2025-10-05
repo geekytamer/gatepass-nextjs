@@ -153,9 +153,13 @@ export function UsersTable({
                         </TableRow>
                       ))
                     : users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
+                        <TableRow
+                          key={user.id}
+                          className="block md:table-row border md:border-0 rounded-lg md:rounded-none mb-3 md:mb-0 overflow-hidden bg-background md:bg-transparent"
+                        >
+                          {/* USER CELL */}
+                          <TableCell className="block md:table-cell border-b md:border-0">
+                            <div className="flex flex-wrap items-center gap-3 p-2 md:p-0">
                               <Avatar className="h-9 w-9">
                                 <AvatarImage
                                   src={user.avatarUrl}
@@ -165,79 +169,78 @@ export function UsersTable({
                                   {user.name.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className="font-medium whitespace-nowrap">
+
+                              <div className="font-medium break-words">
                                 {user.name}
                               </div>
-                              {user.certificates &&
-                                user.certificates.length > 0 && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-muted-foreground"
-                                      >
-                                        <Paperclip className="h-4 w-4" />
-                                        <span className="sr-only">
-                                          View Certificates
-                                        </span>
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="w-[95vw] max-w-md sm:max-w-xl max-h-[85vh] overflow-y-auto">
-                                      <DialogHeader>
-                                        <DialogTitle>
-                                          Certificates for {user.name}
-                                        </DialogTitle>
-                                      </DialogHeader>
-                                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
-                                        {user.certificates.map(
-                                          (cert, index) => {
-                                            const isExpired =
-                                              isCertificateExpired(
-                                                cert.expiryDate
-                                              );
-                                            return (
-                                              <Card key={index}>
-                                                <CardHeader className="flex-row items-start gap-3">
-                                                  <ShieldCheck className="h-5 w-5 text-primary mt-1" />
-                                                  <div className="flex-1">
-                                                    <CardTitle className="text-lg">
-                                                      {cert.name}
-                                                    </CardTitle>
-                                                    {cert.expiryDate ? (
-                                                      <CardDescription
-                                                        className={
-                                                          isExpired
-                                                            ? "text-destructive font-semibold"
-                                                            : ""
-                                                        }
-                                                      >
-                                                        Expires:{" "}
-                                                        {format(
-                                                          parseISO(
-                                                            cert.expiryDate
-                                                          ),
-                                                          "PPP"
-                                                        )}
-                                                      </CardDescription>
-                                                    ) : (
-                                                      <CardDescription>
-                                                        No expiry date
-                                                      </CardDescription>
+
+                              {/* Certificates Button */}
+                              {(user.certificates?.length || 0) > 0 && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground"
+                                    >
+                                      <Paperclip className="h-4 w-4" />
+                                      <span className="sr-only">
+                                        View Certificates
+                                      </span>
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="w-[95vw] max-w-md sm:max-w-xl max-h-[85vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>
+                                        Certificates for {user.name}
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      {user.certificates?.map((cert, index) => {
+                                        const isExpired = isCertificateExpired(
+                                          cert.expiryDate
+                                        );
+                                        return (
+                                          <Card key={index}>
+                                            <CardHeader className="flex-row items-start gap-3">
+                                              <ShieldCheck className="h-5 w-5 text-primary mt-1" />
+                                              <div className="flex-1">
+                                                <CardTitle className="text-lg">
+                                                  {cert.name}
+                                                </CardTitle>
+                                                {cert.expiryDate ? (
+                                                  <CardDescription
+                                                    className={
+                                                      isExpired
+                                                        ? "text-destructive font-semibold"
+                                                        : ""
+                                                    }
+                                                  >
+                                                    Expires:{" "}
+                                                    {format(
+                                                      parseISO(cert.expiryDate),
+                                                      "PPP"
                                                     )}
-                                                  </div>
-                                                  {isExpired && (
-                                                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                                                  )}
-                                                </CardHeader>
-                                              </Card>
-                                            );
-                                          }
-                                        )}
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
+                                                  </CardDescription>
+                                                ) : (
+                                                  <CardDescription>
+                                                    No expiry date
+                                                  </CardDescription>
+                                                )}
+                                              </div>
+                                              {isExpired && (
+                                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                              )}
+                                            </CardHeader>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+
+                              {/* ID Card Button */}
                               {user.idCardImageUrl && (
                                 <Dialog>
                                   <DialogTrigger asChild>
@@ -252,7 +255,7 @@ export function UsersTable({
                                       </span>
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent>
+                                  <DialogContent className="w-[95vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
                                     <DialogHeader>
                                       <DialogTitle>
                                         ID Card for {user.name}
@@ -270,6 +273,8 @@ export function UsersTable({
                                   </DialogContent>
                                 </Dialog>
                               )}
+
+                              {/* ID Number Button */}
                               {user.idNumber && (
                                 <Dialog>
                                   <DialogTrigger asChild>
@@ -284,7 +289,7 @@ export function UsersTable({
                                       </span>
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent className="sm:max-w-md">
+                                  <DialogContent className="w-[95vw] sm:max-w-md">
                                     <DialogHeader>
                                       <DialogTitle>
                                         ID Number for {user.name}
@@ -300,7 +305,9 @@ export function UsersTable({
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+
+                          {/* DETAILS CELL */}
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                             <div>{user.email}</div>
                             <div>{user.company || ""}</div>
                             {user.role === "Security" &&
@@ -314,10 +321,14 @@ export function UsersTable({
                                 </Badge>
                               )}
                           </TableCell>
-                          <TableCell>
+
+                          {/* ROLE CELL */}
+                          <TableCell className="block md:table-cell text-sm mt-2 md:mt-0">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
-                          <TableCell>
+
+                          {/* STATUS CELL */}
+                          <TableCell className="block md:table-cell text-sm mt-2 md:mt-0">
                             <Badge
                               className={
                                 statusColors[user.status || "Inactive"]
@@ -326,7 +337,9 @@ export function UsersTable({
                               {user.status || "Inactive"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+
+                          {/* ACTIONS CELL */}
+                          <TableCell className="block md:table-cell text-right mt-3 md:mt-0">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -344,6 +357,7 @@ export function UsersTable({
                                 >
                                   <Pencil className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
+
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <DropdownMenuItem
@@ -355,7 +369,7 @@ export function UsersTable({
                                       </span>
                                     </DropdownMenuItem>
                                   </AlertDialogTrigger>
-                                  <AlertDialogContent>
+                                  <AlertDialogContent className="w-[95vw] sm:max-w-md">
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>
                                         Are you absolutely sure?

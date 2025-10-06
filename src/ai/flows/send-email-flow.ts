@@ -55,7 +55,7 @@ const sendEmailFlow = ai.defineFlow(
 
     try {
       const result = await resend.emails.send({
-        from: "GatePass <no-reply@yourdomain.com>", // Use your verified domain email here
+        from: "GatePass <no-reply@gatepass.om>", // Use your verified domain email here
         to: input.to,
         subject: input.subject,
         html: input.body,

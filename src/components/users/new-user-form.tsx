@@ -108,7 +108,7 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
     return (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-4">
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
+          <div className="space-y-6 overflow-y-visible sm:max-h-[70vh] sm:overflow-y-auto px-1 sm:pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
@@ -338,17 +338,17 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
                                   </Button>
                                 </FormControl>
                               </PopoverTrigger>
-                                <PopoverContent
-                                  className="w-auto p-0"
-                                  align="start"
-                                >
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                              >
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                />
+                              </PopoverContent>
                             </Popover>
                           );
                         })()}

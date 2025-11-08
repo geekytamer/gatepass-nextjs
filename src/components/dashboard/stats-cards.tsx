@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Users, Hourglass, LogIn, Building } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +11,7 @@ import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 
 export function StatsCards() {
-    const { firestoreUser, loading: authLoading } = useAuthProtection(['Admin', 'Manager', 'Security', 'Worker']);
+    const { firestoreUser, loading: authLoading } = useAuthProtection(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Supervisor']);
     const firestore = useFirestore();
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -29,8 +29,11 @@ export function StatsCards() {
         const role = firestoreUser.role;
         const userId = firestoreUser.id;
 
-        // Admin-specific stats
-        if (role === 'Admin') {
+        const canViewAllStats = role === 'System Admin' || role === 'Operator Admin';
+        const isManager = role === 'Manager';
+
+
+        if (canViewAllStats) {
             const usersUnsub = onSnapshot(collection(firestore, 'users'), (snapshot) => {
                 const users = snapshot.docs.map(doc => doc.data() as User);
                 setStats(prev => ({
@@ -58,8 +61,7 @@ export function StatsCards() {
             unsubs.push(activityUnsub);
         }
 
-        // Manager-specific stats
-        if (role === 'Manager') {
+        if (isManager) {
              const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
              const sitesUnsub = onSnapshot(sitesQuery, (sitesSnapshot) => {
                 const managerSiteIds = sitesSnapshot.docs.map(doc => doc.id);
@@ -88,7 +90,7 @@ export function StatsCards() {
              unsubs.push(sitesUnsub);
         }
 
-        if (role !== 'Admin' && role !== 'Manager') {
+        if (!canViewAllStats && !isManager) {
             setLoading(false);
         }
         
@@ -121,7 +123,7 @@ export function StatsCards() {
     }
 
 
-    if (authLoading || (loading && (firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Manager'))) {
+    if (authLoading || (loading && (firestoreUser?.role === 'System Admin' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Manager'))) {
         return (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
@@ -140,13 +142,13 @@ export function StatsCards() {
         );
     }
   
-  if (!firestoreUser || (firestoreUser.role !== 'Admin' && firestoreUser.role !== 'Manager')) {
+  if (!firestoreUser || (firestoreUser.role !== 'System Admin' && firestoreUser.role !== 'Operator Admin' && firestoreUser.role !== 'Manager')) {
       return null;
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {firestoreUser.role === 'Admin' && (
+      {(firestoreUser.role === 'System Admin' || firestoreUser.role === 'Operator Admin') && (
         <>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -6,7 +6,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function DashboardPage() {
-    const { loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Manager', 'Security', 'Worker', 'Visitor']);
+    const { loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Visitor', 'Supervisor']);
     
     if (loading) {
         return <div>Loading...</div>;

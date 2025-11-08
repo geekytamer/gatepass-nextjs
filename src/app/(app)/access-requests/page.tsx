@@ -13,9 +13,9 @@ import { useFirestore } from "@/firebase";
 import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 
 export default function AccessRequestsPage() {
-  const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Manager', 'Worker', 'Supervisor']);
-  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Admin', [firestoreUser]);
-  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Admin', [firestoreUser]);
+  const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
+  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'System Admin', [firestoreUser]);
+  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'System Admin', [firestoreUser]);
   const currentUserId = authUser?.uid;
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -49,7 +49,7 @@ export default function AccessRequestsPage() {
     if (firestoreUser.role === 'Worker') {
       // Workers see requests they are a part of
       userRequestsQuery = query(requestsCollection, where("workerIds", "array-contains", currentUserId));
-    } else if (firestoreUser.role === 'Supervisor') {
+    } else if (firestoreUser.role === 'Supervisor' || firestoreUser.role === 'Contractor Admin') {
       // Supervisors see requests they have submitted
        userRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
     } else {
@@ -68,7 +68,7 @@ export default function AccessRequestsPage() {
     if (isManager) {
         const getManagedSiteIds = async () => {
             let managedSiteIds: string[] = [];
-            if (firestoreUser?.role === 'Admin') {
+            if (firestoreUser?.role === 'System Admin' || firestoreUser?.role === 'Operator Admin') {
                 const sitesSnapshot = await getDocs(collection(firestore, 'sites'));
                 managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
             } else if (firestoreUser?.role === 'Manager') {

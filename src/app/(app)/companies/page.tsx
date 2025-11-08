@@ -26,7 +26,7 @@ export default function CompaniesPage() {
   const firestore = useFirestore();
 
   useEffect(() => {
-    if (!firestore || !firestoreUser) return;
+    if (!firestore || !firestoreUser?.id) return;
     setLoadingData(true);
     
     const unsubs: (() => void)[] = [];
@@ -38,13 +38,22 @@ export default function CompaniesPage() {
     unsubs.push(onSnapshot(collection(firestore, "accessRequests"), (snap) => setRequests(snap.docs.map(d => ({...d.data(), id: d.id } as AccessRequest)))));
     
     // A simple way to check when all initial data has loaded
-    Promise.all(unsubs.map(unsub => new Promise(resolve => {
-        const tempUnsub = unsub;
-        resolve(null);
-    }))).then(() => setLoadingData(false));
+    const loadingPromises = snapshot => new Promise(resolve => {
+      const unsub = onSnapshot(snapshot, () => resolve(null), () => resolve(null));
+      unsubs.push(unsub);
+    });
+
+    Promise.all([
+      loadingPromises(collection(firestore, "operators")),
+      loadingPromises(collection(firestore, "contractors")),
+      loadingPromises(collection(firestore, "users")),
+      loadingPromises(collection(firestore, "sites")),
+      loadingPromises(collection(firestore, "accessRequests")),
+    ]).then(() => setLoadingData(false));
+
 
     return () => unsubs.forEach(unsub => unsub());
-  }, [firestore, firestoreUser]);
+  }, [firestore, firestoreUser?.id]);
 
   const handleAddCompany = async (name: string, type: 'operator' | 'contractor') => {
     if (!firestore || !name) return;

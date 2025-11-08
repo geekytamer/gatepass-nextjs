@@ -10,12 +10,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { AccessRequest } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, Users } from 'lucide-react';
+import { Check, X, Loader2, Users, CalendarDays, Infinity } from 'lucide-react';
 import type { Timestamp } from 'firebase/firestore';
 
 
@@ -24,7 +23,8 @@ interface RequestsTableProps {
   title: string;
   description: string;
   showActions?: boolean;
-  onAction?: (requestId: string, status: 'Approved' | 'Denied') => void;
+  onApprove?: (request: AccessRequest) => void;
+  onDeny?: (requestId: string) => void;
   isLoading?: boolean;
 }
 
@@ -40,24 +40,33 @@ const statusColorClasses = {
   Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
 }
 
-export function RequestsTable({ requests, title, description, showActions = false, onAction, isLoading = false }: RequestsTableProps) {
-
-  const handleAction = (requestId: string, status: 'Approved' | 'Denied') => {
-    onAction?.(requestId, status);
-  }
+export function RequestsTable({ requests, title, description, showActions = false, onApprove, onDeny, isLoading = false }: RequestsTableProps) {
 
   const formatTimestamp = (timestamp: Timestamp | string | undefined) => {
     if (!timestamp) return 'N/A';
     if (typeof timestamp === 'string') {
-      return format(parseISO(timestamp), 'dd MMM yyyy, HH:mm');
+      try {
+        return format(parseISO(timestamp), 'dd MMM yyyy, HH:mm');
+      } catch {
+        return 'Invalid Date';
+      }
     }
     if (typeof timestamp === 'object' && 'toDate' in timestamp) {
       return format(timestamp.toDate(), 'dd MMM yyyy, HH:mm');
     }
     return 'Invalid Date';
   };
+  
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(parseISO(dateString), 'dd MMM yyyy');
+    } catch {
+      return 'Invalid Date';
+    }
+  }
 
-  const colSpan = showActions ? 5 : 4;
+  const colSpan = showActions ? 6 : 5;
 
   return (
     <Card>
@@ -73,6 +82,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                 <TableHead>Request Details</TableHead>
                 <TableHead>Supervisor</TableHead>
                 <TableHead>Requested At</TableHead>
+                <TableHead>Access Dates</TableHead>
                 <TableHead>Status</TableHead>
                 {showActions && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
@@ -106,6 +116,21 @@ export function RequestsTable({ requests, title, description, showActions = fals
                        {formatTimestamp(request.requestedAt)}
                     </TableCell>
                     <TableCell>
+                      {request.status === 'Approved' ? (
+                        <div className="flex items-center gap-2 text-sm">
+                           <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                           <div className="flex flex-col">
+                             <span>{formatDate(request.validFrom)}</span>
+                             <span className="flex items-center gap-1">
+                                to {request.expiresAt === 'Permanent' ? <Infinity className="h-4 w-4" /> : formatDate(request.expiresAt)}
+                             </span>
+                           </div>
+                        </div>
+                      ) : (
+                         <span className="text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
                         {request.status}
                       </Badge>
@@ -113,8 +138,8 @@ export function RequestsTable({ requests, title, description, showActions = fals
                     {showActions && (
                         <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
-                                <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Approved')}><Check className="h-4 w-4 text-green-600" /></Button>
-                                <Button variant="outline" size="icon" onClick={() => handleAction(request.id, 'Denied')}><X className="h-4 w-4 text-red-600" /></Button>
+                                <Button variant="outline" size="icon" onClick={() => onApprove?.(request)}><Check className="h-4 w-4 text-green-600" /></Button>
+                                <Button variant="outline" size="icon" onClick={() => onDeny?.(request.id)}><X className="h-4 w-4 text-red-600" /></Button>
                             </div>
                         </TableCell>
                     )}

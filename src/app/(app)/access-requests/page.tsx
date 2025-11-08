@@ -10,6 +10,7 @@ import type { AccessRequest, Site, Operator, Contractor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { useFirestore } from "@/firebase";
+import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 
 export default function AccessRequestsPage() {
   const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Manager', 'Worker', 'Supervisor']);
@@ -25,6 +26,8 @@ export default function AccessRequestsPage() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [approvalRequest, setApprovalRequest] = useState<AccessRequest | null>(null);
 
   // Determine the default tab
   const defaultTab = useMemo(() => {
@@ -57,7 +60,7 @@ export default function AccessRequestsPage() {
     unsubs.push(onSnapshot(userRequestsQuery, (snapshot) => {
         const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
         setMyRequests(userRequests);
-        setLoading(false);
+        if (!isManager) setLoading(false);
     }, () => setLoading(false)));
 
 
@@ -83,9 +86,11 @@ export default function AccessRequestsPage() {
                 unsubs.push(onSnapshot(pendingRequestsQuery, (snapshot) => {
                   const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
                   setPendingRequests(pending);
+                  setLoading(false);
                 }));
             } else {
                 setPendingRequests([]);
+                setLoading(false);
             }
         };
         setupPendingRequestsListener();
@@ -102,17 +107,39 @@ export default function AccessRequestsPage() {
     };
   }, [firestore, currentUserId, isManager, firestoreUser]);
 
-  const handleRequestAction = async (requestId: string, newStatus: 'Approved' | 'Denied') => {
-    if (!firestore) return;
-    try {
+  const handleOpenApprovalDialog = (request: AccessRequest) => {
+    setApprovalRequest(request);
+  };
+  
+  const handleDenyRequest = async (requestId: string) => {
+      if (!firestore) return;
+      try {
         const requestRef = doc(firestore, "accessRequests", requestId);
-        await updateDoc(requestRef, { status: newStatus });
-        toast({ title: `Request ${newStatus}`, description: `The request has been ${newStatus.toLowerCase()}.` });
+        await updateDoc(requestRef, { status: 'Denied' });
+        toast({ title: `Request Denied`, description: `The request has been denied.` });
     } catch (error) {
-        console.error(`Error updating request to ${newStatus}:`, error);
+        console.error(`Error denying request:`, error);
         toast({ variant: "destructive", title: "Action Failed", description: "Could not update the request status." });
     }
   }
+
+  const handleConfirmApproval = async (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => {
+    if (!firestore) return;
+    try {
+      const requestRef = doc(firestore, 'accessRequests', requestId);
+      await updateDoc(requestRef, {
+        status: 'Approved',
+        validFrom: validFrom.toISOString().split('T')[0], // "yyyy-MM-dd"
+        expiresAt: expiresAt === 'Permanent' ? 'Permanent' : expiresAt.toISOString().split('T')[0],
+      });
+      toast({ title: 'Request Approved', description: 'The access request has been approved.' });
+    } catch (error) {
+      console.error('Error approving request:', error);
+      toast({ variant: 'destructive', title: 'Approval Failed', description: 'Could not approve the request.' });
+    } finally {
+        setApprovalRequest(null);
+    }
+  };
   
   if (authLoading || !firestoreUser) {
     return <div>Loading...</div>;
@@ -166,10 +193,18 @@ export default function AccessRequestsPage() {
 
         {isManager && (
             <TabsContent value="approve">
-                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onAction={handleRequestAction} isLoading={loading} />
+                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onApprove={handleOpenApprovalDialog} onDeny={handleDenyRequest} isLoading={loading} />
             </TabsContent>
         )}
       </Tabs>
+      
+      {approvalRequest && (
+        <ApprovalDialog
+          request={approvalRequest}
+          onOpenChange={() => setApprovalRequest(null)}
+          onConfirm={handleConfirmApproval}
+        />
+      )}
     </div>
   );
 }

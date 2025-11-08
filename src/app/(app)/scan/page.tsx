@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building, AlertTriangle } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { format, isBefore, parseISO } from 'date-fns';
+import { format, isBefore, parseISO, isAfter } from 'date-fns';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
@@ -31,7 +32,7 @@ export default function ScanPage() {
     const [assignedSite, setAssignedSite] = useState<Site | null>(null);
     const [loadingSite, setLoadingSite] = useState(true);
     const [dialogState, setDialogState] = useState<DialogState>('closed');
-    const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | null>(null);
+    const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started' | null>(null);
     const [certificateStatus, setCertificateStatus] = useState<CertificateStatus>({ missing: [], expired: [] });
     const [lastActivity, setLastActivity] = useState<LastActivity>(null);
     const [isScannerPaused, setIsScannerPaused] = useState(false);
@@ -73,20 +74,41 @@ export default function ScanPage() {
                 const user = { id: userSnap.id, ...userSnap.data() } as UserType;
                 setScannedUser(user);
 
-                // 1. Check for approved access request (if worker)
-                if (user.role === 'Worker') {
-                    const todayStr = format(new Date(), "yyyy-MM-dd");
-                    const requestsQuery = query(
-                        collection(firestore, "accessRequests"),
-                        where("userId", "==", user.id),
-                        where("siteId", "==", assignedSite.id),
-                        where("status", "==", "Approved"),
-                        where("date", "==", todayStr)
-                    );
-                    const requestsSnap = await getDocs(requestsQuery);
-                    setAccessStatus(requestsSnap.empty ? 'denied-no-request' : 'approved');
+                // 1. Check for approved and valid access request
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const requestsQuery = query(
+                    collection(firestore, "accessRequests"),
+                    where("workerIds", "array-contains", user.id),
+                    where("siteId", "==", assignedSite.id),
+                    where("status", "==", "Approved")
+                );
+                const requestsSnap = await getDocs(requestsQuery);
+
+                if (requestsSnap.empty) {
+                    setAccessStatus('denied-no-request');
                 } else {
-                    setAccessStatus('approved'); // Non-workers approved by default
+                    let isValidRequestFound = false;
+                    for (const requestDoc of requestsSnap.docs) {
+                        const request = requestDoc.data() as AccessRequest;
+                        const validFrom = request.validFrom ? parseISO(request.validFrom) : null;
+                        const expiresAt = request.expiresAt ? (request.expiresAt === 'Permanent' ? 'Permanent' : parseISO(request.expiresAt)) : null;
+
+                        if (validFrom && isAfter(today, validFrom) || format(today, 'yyyy-MM-dd') === request.validFrom) {
+                           if (expiresAt === 'Permanent' || (expiresAt instanceof Date && (isBefore(today, expiresAt) || format(today, 'yyyy-MM-dd') === request.expiresAt))) {
+                                isValidRequestFound = true;
+                                setAccessStatus('approved');
+                                break;
+                           } else if (expiresAt instanceof Date) {
+                                setAccessStatus('denied-expired');
+                           }
+                        } else {
+                           setAccessStatus('denied-not-started');
+                        }
+                    }
+                    if (!isValidRequestFound && accessStatus !== 'denied-expired' && accessStatus !== 'denied-not-started') {
+                        setAccessStatus('denied-no-request');
+                    }
                 }
                 
                 // 2. Check for required certificates

@@ -1,3 +1,4 @@
+
 'use client'
 
 import React from 'react';
@@ -14,7 +15,7 @@ import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, L
 
 interface UserFoundDialogProps {
   scannedUser: User;
-  accessStatus: 'approved' | 'denied-no-request' | null;
+  accessStatus: 'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started' | null;
   certificateStatus: { missing: string[], expired: string[] };
   lastActivity: 'Check-in' | 'Check-out' | null;
   assignedSite: Site;
@@ -50,6 +51,15 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
   const hasCertificateIssues = certificateStatus.missing.length > 0 || certificateStatus.expired.length > 0;
   const isAccessGranted = accessStatus === 'approved' && !hasCertificateIssues;
 
+  const getAccessDeniedReason = () => {
+    switch(accessStatus) {
+        case 'denied-no-request': return 'No approved access request found for today.';
+        case 'denied-expired': return 'Access request has expired.';
+        case 'denied-not-started': return 'Access request validity has not started yet.';
+        default: return 'Access denied due to an unknown reason.';
+    }
+  }
+
   return (
     <>
       <DialogHeader>
@@ -84,12 +94,12 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
               {isAccessGranted ? 'Access Approved' : 'Access Denied'}
             </Badge>
 
-          {accessStatus === 'denied-no-request' && (
+          {accessStatus !== 'approved' && accessStatus !== null && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>No Access Request</AlertTitle>
+              <AlertTitle>Access Request Issue</AlertTitle>
               <AlertDescription>
-                This worker does not have an approved access request for today.
+                {getAccessDeniedReason()}
               </AlertDescription>
             </Alert>
           )}

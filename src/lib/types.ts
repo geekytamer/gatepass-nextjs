@@ -32,7 +32,6 @@ export type AccessRequest = {
   userId?: string;
   userName?: string;
   userAvatar?: string;
-  date?: string;
   reason?: string;
   // New fields for group requests
   supervisorId: string;
@@ -48,6 +47,8 @@ export type AccessRequest = {
   workerIds: string[];
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;
+  validFrom?: string; // ISO 8601 Date string "yyyy-MM-dd"
+  expiresAt?: string; // ISO 8601 Date string "yyyy-MM-dd" or "Permanent"
 };
 
 export type GateActivity = {

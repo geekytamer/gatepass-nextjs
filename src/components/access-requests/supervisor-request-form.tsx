@@ -1,27 +1,38 @@
+
 'use client'
 
 import { z } from "zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2 } from "lucide-react";
+import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2, FileBadge } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import type { Operator, Site, Contractor, User } from "@/lib/types";
+import type { Operator, Site, Contractor, User, Certificate } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useCallback } from "react";
 import { processAccessRequest } from "@/ai/flows/process-access-request-flow";
 import { serverFetchWorkerData } from "@/app/actions/workerActions";
 import { cn } from "@/lib/utils";
+import { Badge } from "../ui/badge";
+import { format, parseISO } from "date-fns";
 
+
+const certificateSchema = z.object({
+  name: z.string(),
+  expiryDate: z.string().optional(),
+});
 
 const workerSchema = z.object({
   workerId: z.string().min(1, "Worker ID is required."),
   name: z.string().optional(),
   email: z.string().optional(),
+  jobTitle: z.string().optional(),
+  nationality: z.string().optional(),
+  certificates: z.array(certificateSchema).optional(),
   status: z.enum(["unchecked", "loading", "found", "not_found"]).default("unchecked"),
 });
 
@@ -81,10 +92,16 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             if (result && result.name) {
                 form.setValue(`workers.${index}.name`, result.name);
                 form.setValue(`workers.${index}.email`, result.email);
+                form.setValue(`workers.${index}.jobTitle`, result.jobTitle);
+                form.setValue(`workers.${index}.nationality`, result.nationality);
+                form.setValue(`workers.${index}.certificates`, result.certificates);
                 form.setValue(`workers.${index}.status`, 'found');
             } else {
                 form.setValue(`workers.${index}.name`, '');
                 form.setValue(`workers.${index}.email`, '');
+                form.setValue(`workers.${index}.jobTitle`, '');
+                form.setValue(`workers.${index}.nationality`, '');
+                form.setValue(`workers.${index}.certificates`, []);
                 form.setValue(`workers.${index}.status`, 'not_found');
             }
         } catch (error) {
@@ -116,7 +133,12 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
                 focalPoint: values.focalPoint,
-                workerList: verifiedWorkers.map(w => ({ id: w.workerId, name: w.name!, email: w.email! })),
+                workerList: verifiedWorkers.map(w => ({ 
+                    id: w.workerId, 
+                    name: w.name!, 
+                    email: w.email!,
+                    certificates: w.certificates,
+                })),
             });
 
             if (result.success) {
@@ -225,41 +247,68 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                            {fields.map((field, index) => {
                              const worker = form.watch(`workers.${index}`);
                              return (
-                              <div key={field.id} className={cn("grid grid-cols-[1fr_auto_1fr_1fr_auto] items-end gap-3 p-3 rounded-md border", {
-                                "bg-green-50 border-green-200": worker.status === 'found',
-                                "bg-red-50 border-red-200": worker.status === 'not_found',
+                              <div key={field.id} className={cn("flex flex-col gap-3 p-3 rounded-md border", {
+                                "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800": worker.status === 'found',
+                                "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800": worker.status === 'not_found',
                               })}>
-                                <FormField
-                                  control={form.control}
-                                  name={`workers.${index}.workerId`}
-                                  render={({ field }) => (
+                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr_1fr_auto] items-start gap-3">
+                                  <FormField
+                                    control={form.control}
+                                    name={`workers.${index}.workerId`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className={cn("text-xs", index > 0 && "sm:hidden")}>Worker ID</FormLabel>
+                                        <FormControl>
+                                          <Input placeholder="Enter ID..." {...field} disabled={worker.status === 'found'} />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <Button type="button" size="sm" onClick={() => handleCheckWorkerId(index)} disabled={worker.status === 'loading' || worker.status === 'found'} className="self-end">
+                                    {worker.status === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {worker.status !== 'loading' && "Check ID"}
+                                  </Button>
+                                  
+                                  <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 col-span-1 sm:col-span-2 md:col-span-2 gap-3">
                                     <FormItem>
-                                      <FormLabel className={cn(index > 0 && "sr-only")}>Worker ID</FormLabel>
-                                      <FormControl>
-                                        <Input placeholder="Enter ID..." {...field} disabled={worker.status === 'found'} />
-                                      </FormControl>
-                                       <FormMessage />
+                                      <FormLabel className={cn("text-xs", index > 0 && "sm:hidden")}>Name</FormLabel>
+                                      <Input readOnly value={worker.name || (worker.status === 'not_found' ? 'Not Found' : '')} placeholder="Name (auto-filled)" />
                                     </FormItem>
-                                  )}
-                                />
+                                    <FormItem>
+                                      <FormLabel className={cn("text-xs", index > 0 && "sm:hidden")}>Email</FormLabel>
+                                      <Input readOnly value={worker.email || ''} placeholder="Email (auto-filled)" />
+                                    </FormItem>
+                                  </div>
 
-                                <Button type="button" size="sm" onClick={() => handleCheckWorkerId(index)} disabled={worker.status === 'loading' || worker.status === 'found'}>
-                                   {worker.status === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
-                                   {worker.status !== 'loading' && "Check ID"}
-                                </Button>
-                                
-                                <FormItem>
-                                  <FormLabel className={cn(index > 0 && "sr-only")}>Name</FormLabel>
-                                   <Input readOnly value={worker.name || (worker.status === 'not_found' ? 'Not Found' : '')} placeholder="Name (auto-filled)" />
-                                </FormItem>
-                                <FormItem>
-                                  <FormLabel className={cn(index > 0 && "sr-only")}>Email</FormLabel>
-                                  <Input readOnly value={worker.email || ''} placeholder="Email (auto-filled)" />
-                                </FormItem>
-
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10" disabled={fields.length <= 1}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10 self-end" disabled={fields.length <= 1}>
+                                      <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                {worker.status === 'found' && (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-dashed">
+                                        <div>
+                                            <p className="text-xs font-semibold text-muted-foreground">Job Title</p>
+                                            <p className="text-sm">{worker.jobTitle}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-muted-foreground">Nationality</p>
+                                            <p className="text-sm">{worker.nationality}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-xs font-semibold text-muted-foreground">Certificates</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {worker.certificates && worker.certificates.length > 0 ? worker.certificates.map(cert => (
+                                                    <Badge key={cert.name} variant="secondary" className="font-normal">
+                                                        <FileBadge className="h-3 w-3 mr-1" />
+                                                        {cert.name}
+                                                    </Badge>
+                                                )) : <span className="text-sm text-muted-foreground">None</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                               </div>
                              )
                            })}

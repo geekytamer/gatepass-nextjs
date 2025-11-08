@@ -12,13 +12,19 @@ import { z } from 'zod';
 import * as admin from 'firebase-admin';
 import { sendVisitorWelcomeEmail } from './send-visitor-welcome-email-flow';
 import { getFirestore } from 'firebase-admin/firestore';
-import { User } from '@/lib/types';
+import { User, Certificate } from '@/lib/types';
 
+
+const certificateSchema = z.object({
+    name: z.string(),
+    expiryDate: z.string().optional(),
+});
 
 const WorkerDataSchema = z.object({
     id: z.string(),
     name: z.string(),
     email: z.string(),
+    certificates: z.array(certificateSchema).optional(),
 });
 
 const ProcessAccessRequestInputSchema = z.object({
@@ -101,6 +107,7 @@ const processAccessRequestFlow = ai.defineFlow(
                 role: 'Worker',
                 status: 'Active',
                 avatarUrl: `https://picsum.photos/seed/${userId}/200/200`,
+                certificates: workerData.certificates || [],
             };
             await firestore.collection('users').doc(userId).set(newUserProfile);
             console.log(`Created Firestore profile for UID: ${userId}`);

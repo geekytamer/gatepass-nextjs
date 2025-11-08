@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2, FileBadge } from "lucide-react";
+import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2, FileBadge, ShieldAlert } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { processAccessRequest } from "@/ai/flows/process-access-request-flow";
 import { serverFetchWorkerData } from "@/app/actions/workerActions";
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isBefore } from "date-fns";
 
 
 const certificateSchema = z.object({
@@ -122,6 +122,39 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             toast({ variant: "destructive", title: "No Verified Workers", description: "Please add and verify at least one worker."});
             return;
         }
+        
+        // ** Certificate Validation Logic **
+        const selectedSite = sites.find(s => s.id === values.siteId);
+        const requiredCerts = selectedSite?.requiredCertificates || [];
+
+        if (requiredCerts.length > 0) {
+            for (const worker of verifiedWorkers) {
+                for (const requiredCertName of requiredCerts) {
+                    const workerCert = worker.certificates?.find(c => c.name === requiredCertName);
+                    
+                    if (!workerCert) {
+                        toast({
+                            variant: "destructive",
+                            title: "Submission Failed: Certificate Missing",
+                            description: `Worker ${worker.name} (${worker.workerId}) is missing the required certificate: "${requiredCertName}".`,
+                            duration: 7000,
+                        });
+                        return; // Halt submission
+                    }
+                    
+                    if (workerCert.expiryDate && isBefore(parseISO(workerCert.expiryDate), new Date())) {
+                        toast({
+                            variant: "destructive",
+                            title: "Submission Failed: Certificate Expired",
+                            description: `Worker ${worker.name}'s (${worker.workerId}) certificate "${requiredCertName}" has expired.`,
+                            duration: 7000,
+                        });
+                        return; // Halt submission
+                    }
+                }
+            }
+        }
+
 
         setIsSubmitting(true);
         try {
@@ -295,12 +328,15 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 <div>
                                     <FormLabel className="text-xs">Certificates</FormLabel>
                                     <div className="mt-2 flex flex-wrap gap-2 min-h-6 p-2 rounded-md bg-muted/50 text-sm">
-                                        {(worker.certificates && worker.certificates.length > 0) ? worker.certificates.map(cert => (
-                                            <Badge key={cert.name} variant="secondary" className="font-normal">
-                                                <FileBadge className="h-3 w-3 mr-1.5" />
-                                                {cert.name}
-                                            </Badge>
-                                        )) : <span className="text-muted-foreground">Certificates (auto-filled)</span>}
+                                        {(worker.certificates && worker.certificates.length > 0) ? worker.certificates.map(cert => {
+                                            const isExpired = cert.expiryDate && isBefore(parseISO(cert.expiryDate), new Date());
+                                            return (
+                                                <Badge key={cert.name} variant={isExpired ? "destructive" : "secondary"} className="font-normal">
+                                                    {isExpired ? <ShieldAlert className="h-3 w-3 mr-1.5" /> : <FileBadge className="h-3 w-3 mr-1.5" />}
+                                                    {cert.name} {isExpired ? '(Expired)' : ''}
+                                                </Badge>
+                                            )
+                                        }) : <span className="text-muted-foreground">Certificates (auto-filled)</span>}
                                     </div>
                                 </div>
                                 <div className="flex justify-end">
@@ -331,3 +367,5 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
         </Card>
     )
 }
+
+    

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useFirestore } from "@/firebase";
 import {
   collection,
@@ -10,8 +10,10 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
+  query,
+  where,
 } from "firebase/firestore";
-import type { User, Site, Contractor, Operator } from "@/lib/types";
+import type { User, Site, Contractor, Operator, UserRole } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { NewUserForm } from "@/components/users/new-user-form";
@@ -49,6 +51,11 @@ export default function UsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const canCreateUser = useMemo(() => {
+    return ['Admin', 'Operator Admin', 'Contractor Admin'].includes(firestoreUser?.role as string);
+  }, [firestoreUser]);
+
+
   useEffect(() => {
     if (!firestore || !firestoreUser) {
       setLoading(false);
@@ -58,7 +65,23 @@ export default function UsersPage() {
     
     const unsubs: (() => void)[] = [];
 
-    unsubs.push(onSnapshot(collection(firestore, "users"), (snapshot) => {
+    let usersQuery;
+    switch (firestoreUser.role) {
+      case 'Admin':
+        usersQuery = collection(firestore, "users");
+        break;
+      case 'Operator Admin':
+        usersQuery = query(collection(firestore, "users"), where('operatorId', '==', firestoreUser.operatorId));
+        break;
+      case 'Contractor Admin':
+        usersQuery = query(collection(firestore, "users"), where('contractorId', '==', firestoreUser.contractorId));
+        break;
+      default:
+        // For other roles, don't fetch any users from this page
+        usersQuery = query(collection(firestore, "users"), where('id', '==', ''));
+    }
+    
+    unsubs.push(onSnapshot(usersQuery, (snapshot) => {
         const usersData = snapshot.docs.map(
           (doc) => ({ id: doc.id, ...doc.data() } as User)
         );
@@ -95,10 +118,7 @@ export default function UsersPage() {
   };
 
   const handleAddUser = async (
-    newUser: Omit<
-      User,
-      "id" | "avatarUrl" | "status" | "idCardImageUrl" | "idNumber"
-    >
+    newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'>
   ) => {
     if (!firestore) {
       toast({
@@ -125,9 +145,26 @@ export default function UsersPage() {
 
       const authUserUid = authResult.uid;
       const userRef = doc(firestore, "users", authUserUid);
+      
+      let operatorId = newUser.operatorId;
+      let contractorId = newUser.contractorId;
+
+      // Inherit company ID from the admin creating the user
+      if (firestoreUser?.role === 'Operator Admin') {
+          operatorId = firestoreUser.operatorId;
+      }
+      if (firestoreUser?.role === 'Contractor Admin') {
+          contractorId = firestoreUser.contractorId;
+      }
+
       const userData: Partial<User> = {
-        ...newUser,
-        id: authUserUid,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        company: newUser.company,
+        operatorId: operatorId,
+        contractorId: contractorId,
+        assignedSiteId: newUser.assignedSiteId,
         status: "Inactive",
         avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
       };
@@ -157,6 +194,7 @@ export default function UsersPage() {
             variant: "destructive",
             title: "Email Failed",
             description: `Could not send welcome email. Please provide the temporary password manually: ${tempPassword}`,
+            duration: 9000,
           });
         }
       }
@@ -244,29 +282,29 @@ export default function UsersPage() {
             Manage personnel from operators, contractors, and visitors.
           </p>
         </div>
-        <Dialog open={isNewUserFormOpen} onOpenChange={setIsNewUserFormOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New User Profile</DialogTitle>
-              <DialogDescription>
-                Enter the user's details. An email will be sent with a temporary password.
-              </DialogDescription>
-            </DialogHeader>
-            <NewUserForm
-              onNewUser={handleAddUser}
-              sites={sites}
-              contractors={contractors}
-              operators={operators}
-              isLoading={loading}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreateUser && (
+            <Dialog open={isNewUserFormOpen} onOpenChange={setIsNewUserFormOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create User
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                <DialogTitle>Create New User Profile</DialogTitle>
+                </DialogHeader>
+                <NewUserForm
+                  onNewUser={handleAddUser}
+                  sites={sites}
+                  contractors={contractors}
+                  operators={operators}
+                  isLoading={loading}
+                  currentUserRole={firestoreUser.role}
+                />
+            </DialogContent>
+            </Dialog>
+        )}
       </header>
       <UsersTable
         users={users}

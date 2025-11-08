@@ -29,12 +29,6 @@ export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';
 
 export type AccessRequest = {
   id: string;
-  // Fields for individual requests (can be deprecated or kept for other roles)
-  userId?: string;
-  userName?: string;
-  userAvatar?: string;
-  reason?: string;
-  // New fields for group requests
   supervisorId: string;
   supervisorName: string;
   operatorId: string;

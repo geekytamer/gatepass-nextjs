@@ -11,6 +11,7 @@ import type { Operator, Contractor, User, Site, AccessRequest } from '@/lib/type
 import { OperatorsTable } from '@/components/companies/operators-table';
 import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
+import { Card } from '@/components/ui/card';
 
 export default function CompaniesPage() {
   const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
@@ -37,7 +38,10 @@ export default function CompaniesPage() {
     unsubs.push(onSnapshot(collection(firestore, "accessRequests"), (snap) => setRequests(snap.docs.map(d => ({...d.data(), id: d.id } as AccessRequest)))));
     
     // A simple way to check when all initial data has loaded
-    Promise.all(unsubs).then(() => setLoadingData(false));
+    Promise.all(unsubs.map(unsub => new Promise(resolve => {
+        const tempUnsub = unsub;
+        resolve(null);
+    }))).then(() => setLoadingData(false));
 
     return () => unsubs.forEach(unsub => unsub());
   }, [firestore, firestoreUser]);
@@ -71,8 +75,15 @@ export default function CompaniesPage() {
         <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
         <p className="text-muted-foreground">Overview of Operator and Contractor companies in the system.</p>
       </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <NewCompanyForm companyType="operator" onAddCompany={handleAddCompany} />
+          <NewCompanyForm companyType="contractor" onAddCompany={handleAddCompany} />
+      </div>
+
+
       <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:max-w-[400px]">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="operators">Operators</TabsTrigger>
           <TabsTrigger value="contractors">Contractors</TabsTrigger>
         </TabsList>

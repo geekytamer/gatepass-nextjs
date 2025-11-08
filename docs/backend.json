@@ -58,8 +58,8 @@
         "workerIds": { "type": "array", "items": { "type": "string" }, "description": "List of worker user IDs included in the request." },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Denied"] },
         "requestedAt": { "type": "string", "format": "date-time" },
-        "validFrom": { "type": "string", "format": "date-time", "description": "The start date of the access validity period." },
-        "expiresAt": { "type": "string", "format": "date-time", "description": "The end date of the access validity period. Can also be 'Permanent'." }
+        "validFrom": { "type": "string", "format": "date", "description": "The start date of the access validity period." },
+        "expiresAt": { "type": "string", "description": "The end date of the access validity period. Can also be 'Permanent'." }
       },
       "required": ["supervisorId", "operatorId", "contractorId", "siteId", "contractNumber", "focalPoint", "workerIds", "status", "requestedAt"]
     },

@@ -16,6 +16,7 @@ export default function AccessRequestsPage() {
   const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
   const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
   const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
+  const isWorker = useMemo(() => firestoreUser?.role === 'Worker', [firestoreUser]);
   const currentUserId = authUser?.uid;
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -33,8 +34,9 @@ export default function AccessRequestsPage() {
   const defaultTab = useMemo(() => {
     if (isSupervisor) return "group-request";
     if (isManager) return "approve";
-    return "my-requests";
-  }, [isSupervisor, isManager]);
+    if (isWorker) return "my-requests-log";
+    return "my-requests-log";
+  }, [isSupervisor, isManager, isWorker]);
 
 
   useEffect(() => {
@@ -151,7 +153,10 @@ export default function AccessRequestsPage() {
 
   const getVisibleTabs = () => {
     const tabs = [];
-    tabs.push({ value: "my-requests", label: "My Requests" });
+    
+    if (isSupervisor || isWorker) {
+        tabs.push({ value: "my-requests-log", label: "My Requests Log" });
+    }
 
     if (isSupervisor) {
       tabs.push({ value: "group-request", label: "Create Group Request" });
@@ -175,9 +180,11 @@ export default function AccessRequestsPage() {
           {visibleTabs.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
         </TabsList>
         
-        <TabsContent value="my-requests">
-            <RequestsTable title="My Requests" description="A log of access requests relevant to you." requests={myRequests} isLoading={loading} />
-        </TabsContent>
+        {(isSupervisor || isWorker) && (
+            <TabsContent value="my-requests-log">
+                <RequestsTable title="My Requests Log" description="A log of access requests relevant to you." requests={myRequests} isLoading={loading} />
+            </TabsContent>
+        )}
 
         {isSupervisor && (
              <TabsContent value="group-request">

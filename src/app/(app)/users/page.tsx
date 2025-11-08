@@ -53,12 +53,12 @@ export default function UsersPage() {
 
   const canCreateUser = useMemo(() => {
     return ['Admin', 'Operator Admin', 'Contractor Admin'].includes(firestoreUser?.role as string);
-  }, [firestoreUser]);
+  }, [firestoreUser?.role]);
 
 
   useEffect(() => {
-    if (!firestore || !firestoreUser) {
-      setLoading(false);
+    if (!firestore || !firestoreUser?.role) {
+      if (!authLoading) setLoading(false);
       return;
     }
     setLoading(true);
@@ -111,7 +111,7 @@ export default function UsersPage() {
     }));
 
     return () => unsubs.forEach(unsub => unsub());
-  }, [firestore, firestoreUser]);
+  }, [firestore, authLoading, firestoreUser?.role, firestoreUser?.operatorId, firestoreUser?.contractorId]);
 
   const generateTempPassword = () => {
     return Math.random().toString(36).slice(-8);

@@ -1,7 +1,7 @@
+
 "use client";
 
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { User, Site, UserStatus } from "@/lib/types";
+import type { User, Site, UserStatus, Contractor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,13 +30,13 @@ import {
   Trash2,
   MoreHorizontal,
   Pencil,
+  Briefcase,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
@@ -54,7 +54,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { format, isBefore, parseISO } from "date-fns";
 import Image from "next/image";
@@ -64,6 +63,7 @@ import { EditUserForm } from "./edit-user-form";
 interface UsersTableProps {
   users: User[];
   sites: Site[];
+  contractors: Contractor[];
   isLoading: boolean;
   onDeleteUser: (userId: string, userName: string) => void;
   onUpdateUser: (
@@ -76,6 +76,7 @@ interface UsersTableProps {
 export function UsersTable({
   users,
   sites,
+  contractors,
   isLoading,
   onDeleteUser,
   onUpdateUser,
@@ -97,6 +98,11 @@ export function UsersTable({
     if (!siteId) return "N/A";
     return sites.find((s) => s.id === siteId)?.name || "Unknown Site";
   };
+  
+  const getContractorName = (contractorId?: string) => {
+     if (!contractorId) return "";
+     return contractors.find((c) => c.id === contractorId)?.name;
+  }
 
   const statusColors: Record<UserStatus, string> = {
     Active: "bg-green-100 text-green-800",
@@ -107,10 +113,9 @@ export function UsersTable({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>All Users</CardTitle>
+          <CardTitle>All Personnel</CardTitle>
           <CardDescription>
-            A list of all users in the system. You can manage their roles and
-            status here.
+            A list of all personnel in the system.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -119,7 +124,7 @@ export function UsersTable({
               <Table className="min-w-full border-separate border-spacing-y-1">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-[160px]">User</TableHead>
+                    <TableHead className="w-[160px]">Personnel</TableHead>
                     <TableHead className="hidden md:table-cell">
                       Details
                     </TableHead>
@@ -168,151 +173,20 @@ export function UsersTable({
                               <div className="font-medium whitespace-nowrap">
                                 {user.name}
                               </div>
-                              {user.certificates &&
-                                user.certificates.length > 0 && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-muted-foreground"
-                                      >
-                                        <Paperclip className="h-4 w-4" />
-                                        <span className="sr-only">
-                                          View Certificates
-                                        </span>
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="w-[95vw] max-w-md sm:max-w-xl max-h-[85vh] overflow-y-auto">
-                                      <DialogHeader>
-                                        <DialogTitle>
-                                          Certificates for {user.name}
-                                        </DialogTitle>
-                                      </DialogHeader>
-                                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
-                                        {user.certificates.map(
-                                          (cert, index) => {
-                                            const isExpired =
-                                              isCertificateExpired(
-                                                cert.expiryDate
-                                              );
-                                            return (
-                                              <Card key={index}>
-                                                <CardHeader className="flex-row items-start gap-3">
-                                                  <ShieldCheck className="h-5 w-5 text-primary mt-1" />
-                                                  <div className="flex-1">
-                                                    <CardTitle className="text-lg">
-                                                      {cert.name}
-                                                    </CardTitle>
-                                                    {cert.expiryDate ? (
-                                                      <CardDescription
-                                                        className={
-                                                          isExpired
-                                                            ? "text-destructive font-semibold"
-                                                            : ""
-                                                        }
-                                                      >
-                                                        Expires:{" "}
-                                                        {format(
-                                                          parseISO(
-                                                            cert.expiryDate
-                                                          ),
-                                                          "PPP"
-                                                        )}
-                                                      </CardDescription>
-                                                    ) : (
-                                                      <CardDescription>
-                                                        No expiry date
-                                                      </CardDescription>
-                                                    )}
-                                                  </div>
-                                                  {isExpired && (
-                                                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                                                  )}
-                                                </CardHeader>
-                                              </Card>
-                                            );
-                                          }
-                                        )}
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              {user.idCardImageUrl && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-muted-foreground"
-                                    >
-                                      <Contact className="h-4 w-4" />
-                                      <span className="sr-only">
-                                        View ID Card
-                                      </span>
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>
-                                        ID Card for {user.name}
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="mt-4">
-                                      <Image
-                                        src={user.idCardImageUrl}
-                                        alt={`ID Card for ${user.name}`}
-                                        width={400}
-                                        height={250}
-                                        className="rounded-lg border object-contain w-full h-auto"
-                                      />
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
-                              {user.idNumber && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-muted-foreground"
-                                    >
-                                      <Contact className="h-4 w-4" />
-                                      <span className="sr-only">
-                                        View ID Number
-                                      </span>
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                      <DialogTitle>
-                                        ID Number for {user.name}
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="mt-4 p-4 bg-muted rounded-md">
-                                      <p className="text-lg font-mono text-center tracking-wider">
-                                        {user.idNumber}
-                                      </p>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                             <div>{user.email}</div>
-                            <div>{user.company || ""}</div>
-                            {user.role === "Security" &&
-                              user.assignedSiteId && (
-                                <Badge
-                                  variant="outline"
-                                  className="mt-1 flex items-center w-fit gap-1"
-                                >
-                                  <Building className="h-3 w-3" />
-                                  {getSiteName(user.assignedSiteId)}
-                                </Badge>
-                              )}
+                             <div className="flex items-center gap-1.5 mt-1">
+                                {user.role === 'Worker' || user.role === 'Supervisor' ? (
+                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company || getContractorName(user.contractorId) || 'N/A'}</Badge>
+                                ) : user.company ? (
+                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company}</Badge>
+                                ) : null}
+                                {user.role === "Security" && user.assignedSiteId && (
+                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Building className="h-3 w-3" />{getSiteName(user.assignedSiteId)}</Badge>
+                                )}
+                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary">{user.role}</Badge>
@@ -393,7 +267,7 @@ export function UsersTable({
         </CardContent>
       </Card>
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-full sm:max-w-3xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User Profile</DialogTitle>
             <DialogDescription>
@@ -405,7 +279,8 @@ export function UsersTable({
               user={selectedUser}
               onUpdateUser={onUpdateUser}
               sites={sites}
-              isLoadingSites={isLoading}
+              contractors={contractors}
+              isLoading={isLoading}
               closeDialog={() => setIsEditDialogOpen(false)}
             />
           )}

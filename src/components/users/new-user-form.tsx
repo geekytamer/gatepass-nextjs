@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { User, UserRole, Certificate, CertificateType, Site } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType, Site, Contractor } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2, Info } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
@@ -24,15 +24,15 @@ import { useMediaQuery } from "react-responsive";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  company: z.string().optional(),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker']),
+  role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
       expiryDate: z.date().optional(),
   })).optional(),
   assignedSiteId: z.string().optional(),
+  contractorId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -40,25 +40,26 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewUserFormProps {
     onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'>) => void;
     sites: Site[];
-    isLoadingSites: boolean;
+    contractors: Contractor[];
+    isLoading: boolean;
 }
 
-export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormProps) {
+export function NewUserForm({ onNewUser, sites, contractors, isLoading }: NewUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
-    const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker'];
+    const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: "",
-            company: "",
             email: "",
             notes: "",
             role: "Worker",
             certificates: [],
             assignedSiteId: "",
+            contractorId: "",
         },
     });
 
@@ -90,14 +91,21 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
+        const selectedContractor = contractors.find(c => c.id === values.contractorId);
+
         const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'> = {
             ...values,
+            company: selectedContractor?.name || '',
             role: values.role as UserRole,
             certificates: certificates,
         };
         
         if(values.role !== 'Security') {
             delete newUser.assignedSiteId;
+        }
+        if(values.role !== 'Worker' && values.role !== 'Supervisor') {
+            delete newUser.contractorId;
+            delete newUser.company;
         }
 
         onNewUser(newUser);
@@ -143,20 +151,7 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="company"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company (optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Acme Inc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
+               <FormField
                 control={form.control}
                 name="role"
                 render={({ field }) => (
@@ -184,6 +179,26 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
                   </FormItem>
                 )}
               />
+               {(selectedRole === "Worker" || selectedRole === "Supervisor") && (
+                <FormField
+                    control={form.control}
+                    name="contractorId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Contractor Company</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
+                            <FormControl><SelectTrigger>
+                                <SelectValue placeholder={isLoading ? "Loading..." : "Assign a contractor"}/>
+                            </SelectTrigger></FormControl>
+                            <SelectContent>
+                                {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                )}
             </div>
 
             {selectedRole === "Security" && (
@@ -197,13 +212,13 @@ export function NewUserForm({ onNewUser, sites, isLoadingSites }: NewUserFormPro
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                       value={field.value}
-                      disabled={isLoadingSites}
+                      disabled={isLoading}
                     >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue
                             placeholder={
-                              isLoadingSites
+                              isLoading
                                 ? "Loading sites..."
                                 : "Select a site to assign"
                             }

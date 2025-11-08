@@ -1,8 +1,8 @@
+
 "use client";
 
-import React, { useState } from "react";
-import { useEffect } from "react";
-import { useFirebaseApp, useFirestore } from "@/firebase";
+import React, { useState, useEffect } from "react";
+import { useFirestore } from "@/firebase";
 import {
   collection,
   onSnapshot,
@@ -11,7 +11,7 @@ import {
   deleteDoc,
   updateDoc,
 } from "firebase/firestore";
-import type { User, Certificate, Site } from "@/lib/types";
+import type { User, Site, Contractor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { NewUserForm } from "@/components/users/new-user-form";
@@ -42,59 +42,48 @@ export default function UsersPage() {
   } = useAuthProtection(["Admin"]);
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingSites, setLoadingSites] = useState(true);
   const [isNewUserFormOpen, setIsNewUserFormOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const app = useFirebaseApp();
 
   useEffect(() => {
     if (!firestore || !firestoreUser) {
       setLoading(false);
-      setLoadingSites(false);
       return;
     }
-
     setLoading(true);
-    const unsubscribe = onSnapshot(
-      collection(firestore, "users"),
-      (snapshot) => {
+    
+    const unsubs: (() => void)[] = [];
+
+    unsubs.push(onSnapshot(collection(firestore, "users"), (snapshot) => {
         const usersData = snapshot.docs.map(
           (doc) => ({ id: doc.id, ...doc.data() } as User)
         );
         setUsers(usersData);
         setLoading(false);
-      }
-    );
+    }));
 
-    setLoadingSites(true);
-    const sitesUnsub = onSnapshot(
-      collection(firestore, "sites"),
-      (snapshot) => {
+    unsubs.push(onSnapshot(collection(firestore, "sites"), (snapshot) => {
         const sitesData = snapshot.docs.map(
           (doc) => ({ id: doc.id, ...doc.data() } as Site)
         );
         setSites(sitesData);
-        setLoadingSites(false);
-      }
-    );
+    }));
+    
+    unsubs.push(onSnapshot(collection(firestore, "contractors"), (snapshot) => {
+        const contractorsData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Contractor)
+        );
+        setContractors(contractorsData);
+    }));
 
-    return () => {
-      unsubscribe();
-      sitesUnsub();
-    };
+    return () => unsubs.forEach(unsub => unsub());
   }, [firestore, firestoreUser]);
 
   const generateTempPassword = () => {
-    const length = 10;
-    const chars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    return Math.random().toString(36).slice(-8);
   };
 
   const handleAddUser = async (
@@ -114,7 +103,6 @@ export default function UsersPage() {
     const tempPassword = generateTempPassword();
 
     try {
-      // Step 1: Create the user in Firebase Auth using the server-side flow
       const authResult = await serverCreateUser({
         email: newUser.email!,
         password: tempPassword,
@@ -128,21 +116,13 @@ export default function UsersPage() {
       }
 
       const authUserUid = authResult.uid;
-
-      // Step 2: Create the user document in Firestore with the UID as the document ID
       const userRef = doc(firestore, "users", authUserUid);
       const userData: Partial<User> = {
         ...newUser,
         id: authUserUid,
-        status: "Inactive", // Set status to Inactive
+        status: "Inactive",
         avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
       };
-
-      if (newUser.role !== "Security") {
-        delete userData.assignedSiteId;
-      } else {
-        userData.assignedSiteId = newUser.assignedSiteId;
-      }
 
       await setDoc(userRef, userData);
 
@@ -150,31 +130,27 @@ export default function UsersPage() {
         title: "User Created",
         description: `${newUser.name} has been created with an inactive status.`,
       });
-      setIsNewUserFormOpen(false); // Close the dialog on success
+      setIsNewUserFormOpen(false);
 
-      // Step 3: Send the welcome email with the temporary password
-      const emailResult = await sendEmail({
-        to: newUser.email!,
-        subject: "Welcome to GatePass - Your Account has been Created",
-        body: `
-                <h1>Welcome to GatePass, ${newUser.name}!</h1>
-                <p>An administrator has created an account for you.</p>
-                <p>Your temporary password is: <strong>${tempPassword}</strong></p>
-                <p>Please log in and change your password immediately to activate your account.</p>
-            `,
-      });
+      if (newUser.role !== 'Visitor') {
+        const emailResult = await sendEmail({
+          to: newUser.email!,
+          subject: "Welcome to GatePass - Your Account has been Created",
+          body: `<h1>Welcome, ${newUser.name}!</h1><p>An account has been created for you.</p><p>Your temporary password is: <strong>${tempPassword}</strong></p><p>Please log in and change your password to activate your account.</p>`,
+        });
 
-      if (emailResult.success) {
-        toast({
-          title: "Welcome Email Sent",
-          description: `Instructions have been sent to ${newUser.email}.`,
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Email Failed",
-          description: `Could not send welcome email. Please provide the user their temporary password manually: ${tempPassword}`,
-        });
+        if (emailResult.success) {
+          toast({
+            title: "Welcome Email Sent",
+            description: `Instructions have been sent to ${newUser.email}.`,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Email Failed",
+            description: `Could not send welcome email. Please provide the temporary password manually: ${tempPassword}`,
+          });
+        }
       }
     } catch (error: any) {
       console.error("Error adding user: ", error);
@@ -186,66 +162,43 @@ export default function UsersPage() {
     }
   };
 
-  const handleUpdateUser = async (
+ const handleUpdateUser = async (
     userId: string,
     originalUser: User,
     updatedData: Omit<User, "id" | "avatarUrl">
   ) => {
     if (!firestore) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Database not available.",
-      });
+      toast({ variant: "destructive", title: "Error", description: "Database not available." });
       return false;
     }
 
     try {
-      const authUpdate: { uid: string; email?: string; displayName?: string } =
-        { uid: userId };
       if (updatedData.email && updatedData.email !== originalUser.email) {
-        authUpdate.email = updatedData.email;
+        await serverUpdateUser({ uid: userId, email: updatedData.email });
       }
       if (updatedData.name !== originalUser.name) {
-        authUpdate.displayName = updatedData.name;
-      }
-
-      if (authUpdate.email || authUpdate.displayName) {
-        const authResult = await serverUpdateUser(authUpdate);
-        if (!authResult.success) {
-          throw new Error(
-            authResult.error || "Failed to update user in Firebase Auth."
-          );
-        }
+        await serverUpdateUser({ uid: userId, displayName: updatedData.name });
       }
 
       const userRef = doc(firestore, "users", userId);
       await updateDoc(userRef, updatedData as { [key: string]: any });
 
-      toast({
-        title: "User Updated",
-        description: `${updatedData.name}'s profile has been successfully updated.`,
-      });
+      toast({ title: "User Updated", description: `${updatedData.name}'s profile has been updated.` });
       return true;
     } catch (error: any) {
       console.error("Error updating user:", error);
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: error.message || "Could not update the user profile.",
-      });
+      toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update user." });
       return false;
     }
   };
+
 
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!firestore) return;
 
     try {
-      // Use the Genkit flow to delete the user from Auth
       const result = await serverDeleteUser({ uid: userId });
       if (result.success) {
-        // Also delete from Firestore collection
         await deleteDoc(doc(firestore, "users", userId));
         toast({
           title: "User Deleted",
@@ -256,12 +209,12 @@ export default function UsersPage() {
           result.error || "Failed to delete user from authentication."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting user: ", error);
       toast({
         variant: "destructive",
         title: "Deletion Failed",
-        description: `Could not delete ${userName}.`,
+        description: error.message || `Could not delete ${userName}.`,
       });
     }
   };
@@ -278,9 +231,9 @@ export default function UsersPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Personnel Management</h1>
           <p className="text-muted-foreground">
-            Create, define, and manage user roles and profiles.
+            Manage personnel from operators, contractors, and visitors.
           </p>
         </div>
         <Dialog open={isNewUserFormOpen} onOpenChange={setIsNewUserFormOpen}>
@@ -294,14 +247,14 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>Create New User Profile</DialogTitle>
               <DialogDescription>
-                Enter the user's details below. An email will be sent to them
-                with a temporary password.
+                Enter the user's details. An email will be sent with a temporary password.
               </DialogDescription>
             </DialogHeader>
             <NewUserForm
               onNewUser={handleAddUser}
               sites={sites}
-              isLoadingSites={loadingSites}
+              contractors={contractors}
+              isLoading={loading}
             />
           </DialogContent>
         </Dialog>
@@ -309,7 +262,8 @@ export default function UsersPage() {
       <UsersTable
         users={users}
         sites={sites}
-        isLoading={loading || loadingSites}
+        contractors={contractors}
+        isLoading={loading}
         onDeleteUser={handleDeleteUser}
         onUpdateUser={handleUpdateUser}
       />

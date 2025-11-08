@@ -2,7 +2,6 @@
 'use server';
 /**
  * @fileOverview Processes a group access request from a supervisor.
- * - Fetches worker details from a (mocked) third-party service.
  * - Creates user profiles for new workers in Firebase.
  * - Sends QR code emails to new workers.
  * - Creates the access request document in Firestore.
@@ -16,20 +15,11 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { User } from '@/lib/types';
 
 
-// Mock third-party service call
-async function fetchWorkerDataFromThirdParty(workerId: string): Promise<Omit<User, 'id' | 'role' | 'status' | 'avatarUrl'>> {
-    console.log(`Fetching data for worker ID: ${workerId}`);
-    // In a real scenario, this would be an API call to an HR system.
-    // We'll return mock data for demonstration.
-    await new Promise(resolve => setTimeout(resolve, 50)); // Simulate network delay
-    return {
-        name: `Worker ${workerId}`,
-        email: `worker.${workerId}@contractor.com`,
-        company: 'Default Contractor Inc.',
-        // Add other relevant fields that your third-party service provides
-    };
-}
-
+const WorkerDataSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+});
 
 const ProcessAccessRequestInputSchema = z.object({
   supervisorId: z.string(),
@@ -39,7 +29,7 @@ const ProcessAccessRequestInputSchema = z.object({
   siteId: z.string(),
   contractNumber: z.string(),
   focalPoint: z.string(),
-  workerIdList: z.string().describe("A comma-separated string of worker IDs"),
+  workerList: z.array(WorkerDataSchema).describe("A list of verified worker objects."),
 });
 export type ProcessAccessRequestInput = z.infer<typeof ProcessAccessRequestInputSchema>;
 
@@ -70,30 +60,29 @@ const processAccessRequestFlow = ai.defineFlow(
     }
     const firestore = getFirestore();
 
-    const workerIds = input.workerIdList.split(',').map(id => id.trim()).filter(id => id);
-    if (workerIds.length === 0) {
-      return { success: false, error: "Worker ID list is empty.", workersProcessed: 0 };
+    const workers = input.workerList;
+    if (workers.length === 0) {
+      return { success: false, error: "Worker list is empty.", workersProcessed: 0 };
     }
 
     const processedUserIds: string[] = [];
 
     try {
-      for (const workerId of workerIds) {
+      for (const workerData of workers) {
         // 1. Check if user already exists
         const usersRef = firestore.collection('users');
-        const querySnapshot = await usersRef.where('email', '==', `worker.${workerId}@contractor.com`).limit(1).get();
+        const querySnapshot = await usersRef.where('email', '==', workerData.email).limit(1).get();
 
         let userId: string;
 
         if (!querySnapshot.empty) {
             // User exists, get their ID
             userId = querySnapshot.docs[0].id;
-            console.log(`User ${workerId} already exists with UID: ${userId}`);
+            console.log(`User with email ${workerData.email} already exists with UID: ${userId}`);
         } else {
-            // 2. User does not exist, fetch data and create them
-            console.log(`User ${workerId} not found. Creating new profile.`);
-            const workerData = await fetchWorkerDataFromThirdParty(workerId);
-
+            // 2. User does not exist, create them
+            console.log(`User with email ${workerData.email} not found. Creating new profile.`);
+            
             // Create user in Firebase Auth
             const userRecord = await admin.auth().createUser({
                 email: workerData.email,
@@ -107,7 +96,7 @@ const processAccessRequestFlow = ai.defineFlow(
             const newUserProfile: Partial<User> = {
                 name: workerData.name,
                 email: workerData.email,
-                company: workerData.company,
+                company: (await firestore.collection('contractors').doc(input.contractorId).get()).data()?.name,
                 contractorId: input.contractorId,
                 role: 'Worker',
                 status: 'Active',

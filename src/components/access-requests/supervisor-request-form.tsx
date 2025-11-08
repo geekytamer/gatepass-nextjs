@@ -1,29 +1,39 @@
-
 'use client'
 
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2 } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Operator, Site, Contractor, User } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { processAccessRequest } from "@/ai/flows/process-access-request-flow";
+import { serverFetchWorkerData } from "@/app/actions/workerActions";
+import { cn } from "@/lib/utils";
+
+
+const workerSchema = z.object({
+  workerId: z.string().min(1, "Worker ID is required."),
+  name: z.string().optional(),
+  email: z.string().optional(),
+  status: z.enum(["unchecked", "loading", "found", "not_found"]).default("unchecked"),
+});
 
 const formSchema = z.object({
   operatorId: z.string({ required_error: "Please select an operator." }),
   siteId: z.string({ required_error: "Please select a site." }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
   focalPoint: z.string().min(2, { message: "Focal point name is required." }),
-  workerIds: z.string().min(1, { message: "Please enter at least one Worker ID." }),
+  workers: z.array(workerSchema).min(1, { message: "Please add at least one worker." }),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface SupervisorRequestFormProps {
     supervisor: User;
@@ -37,15 +47,20 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const form = useForm<z.infer<typeof formSchema>>({
+    const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             operatorId: "",
             siteId: "",
             contractNumber: "",
             focalPoint: "",
-            workerIds: "",
+            workers: [{ workerId: "", status: 'unchecked' }],
         },
+    });
+
+    const { fields, append, remove } = useFieldArray({
+      control: form.control,
+      name: "workers"
     });
     
     const selectedOperatorId = form.watch("operatorId");
@@ -53,9 +68,41 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
         return sites.filter(site => site.operatorId === selectedOperatorId);
     }, [sites, selectedOperatorId]);
 
-    async function onSubmit(values: z.infer<typeof formSchema>) {
+    const handleCheckWorkerId = useCallback(async (index: number) => {
+        const workerId = form.getValues(`workers.${index}.workerId`);
+        if (!workerId) {
+            toast({ variant: "destructive", title: "Missing ID", description: "Please enter a worker ID to check." });
+            return;
+        }
+
+        form.setValue(`workers.${index}.status`, 'loading');
+        try {
+            const result = await serverFetchWorkerData({ workerId });
+            if (result && result.name) {
+                form.setValue(`workers.${index}.name`, result.name);
+                form.setValue(`workers.${index}.email`, result.email);
+                form.setValue(`workers.${index}.status`, 'found');
+            } else {
+                form.setValue(`workers.${index}.name`, '');
+                form.setValue(`workers.${index}.email`, '');
+                form.setValue(`workers.${index}.status`, 'not_found');
+            }
+        } catch (error) {
+            console.error("Error fetching worker data:", error);
+            form.setValue(`workers.${index}.status`, 'not_found');
+        }
+    }, [form, toast]);
+
+
+    async function onSubmit(values: FormValues) {
         if (!supervisor.contractorId) {
             toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor."});
+            return;
+        }
+
+        const verifiedWorkers = values.workers.filter(w => w.status === 'found');
+        if (verifiedWorkers.length === 0) {
+            toast({ variant: "destructive", title: "No Verified Workers", description: "Please add and verify at least one worker."});
             return;
         }
 
@@ -69,7 +116,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
                 focalPoint: values.focalPoint,
-                workerIdList: values.workerIds,
+                workerList: verifiedWorkers.map(w => ({ id: w.workerId, name: w.name!, email: w.email! })),
             });
 
             if (result.success) {
@@ -78,6 +125,8 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                     description: `Access request for ${result.workersProcessed} worker(s) has been sent for approval.`,
                 });
                 form.reset();
+                 // Reset field array to a single empty row
+                form.control._reset();
             } else {
                 throw new Error(result.error || "Failed to process the request.");
             }
@@ -169,22 +218,60 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 )}
                             />
                         </div>
-                        <FormField
-                            control={form.control}
-                            name="workerIds"
-                            render={({ field }) => (
+                        
+                        <div className="space-y-4">
+                          <FormLabel>Workers</FormLabel>
+                          <FormDescription>Enter each worker's ID and verify their details from the external system.</FormDescription>
+                           {fields.map((field, index) => {
+                             const worker = form.watch(`workers.${index}`);
+                             return (
+                              <div key={field.id} className={cn("grid grid-cols-[1fr_auto_1fr_1fr_auto] items-end gap-3 p-3 rounded-md border", {
+                                "bg-green-50 border-green-200": worker.status === 'found',
+                                "bg-red-50 border-red-200": worker.status === 'not_found',
+                              })}>
+                                <FormField
+                                  control={form.control}
+                                  name={`workers.${index}.workerId`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className={cn(index > 0 && "sr-only")}>Worker ID</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Enter ID..." {...field} disabled={worker.status === 'found'} />
+                                      </FormControl>
+                                       <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <Button type="button" size="sm" onClick={() => handleCheckWorkerId(index)} disabled={worker.status === 'loading' || worker.status === 'found'}>
+                                   {worker.status === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                   {worker.status !== 'loading' && "Check ID"}
+                                </Button>
+                                
                                 <FormItem>
-                                    <FormLabel>Worker IDs</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Enter a comma-separated list of worker employee IDs..." {...field} />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Provide the unique IDs for each worker. The system will fetch their details.
-                                    </FormDescription>
-                                    <FormMessage />
+                                  <FormLabel className={cn(index > 0 && "sr-only")}>Name</FormLabel>
+                                   <Input readOnly value={worker.name || (worker.status === 'not_found' ? 'Not Found' : '')} placeholder="Name (auto-filled)" />
                                 </FormItem>
-                            )}
+                                <FormItem>
+                                  <FormLabel className={cn(index > 0 && "sr-only")}>Email</FormLabel>
+                                  <Input readOnly value={worker.email || ''} placeholder="Email (auto-filled)" />
+                                </FormItem>
+
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10" disabled={fields.length <= 1}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                             )
+                           })}
+                            <Button type="button" variant="outline" size="sm" onClick={() => append({ workerId: "", status: 'unchecked' })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Worker
+                            </Button>
+                        </div>
+                        <FormField
+                            name="workers"
+                            render={()=>(<FormMessage/>)}
                         />
+
                     </CardContent>
                     <CardFooter>
                         <Button type="submit" disabled={isSubmitting}>

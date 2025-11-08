@@ -247,11 +247,11 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                            {fields.map((field, index) => {
                              const worker = form.watch(`workers.${index}`);
                              return (
-                              <div key={field.id} className={cn("flex flex-col gap-3 p-3 rounded-md border", {
+                              <div key={field.id} className={cn("flex flex-col gap-3 p-4 rounded-md border", {
                                 "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800": worker.status === 'found',
                                 "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800": worker.status === 'not_found',
                               })}>
-                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr_1fr_auto] items-start gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-start gap-4">
                                   <FormField
                                     control={form.control}
                                     name={`workers.${index}.workerId`}
@@ -271,44 +271,43 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                     {worker.status !== 'loading' && "Check ID"}
                                   </Button>
                                   
-                                  <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-2 col-span-1 sm:col-span-2 md:col-span-2 gap-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 col-span-1 md:col-span-1 gap-4">
                                     <FormItem>
                                       <FormLabel className={cn("text-xs", index > 0 && "sm:hidden")}>Name</FormLabel>
                                       <Input readOnly value={worker.name || (worker.status === 'not_found' ? 'Not Found' : '')} placeholder="Name (auto-filled)" />
                                     </FormItem>
-                                    <FormItem>
-                                      <FormLabel className={cn("text-xs", index > 0 && "sm:hidden")}>Email</FormLabel>
-                                      <Input readOnly value={worker.email || ''} placeholder="Email (auto-filled)" />
-                                    </FormItem>
                                   </div>
-
-                                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10 self-end" disabled={fields.length <= 1}>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-dashed">
+                                    <FormItem>
+                                        <FormLabel className="text-xs">Email</FormLabel>
+                                        <Input readOnly value={worker.email || ''} placeholder="Email (auto-filled)" />
+                                    </FormItem>
+                                     <FormItem>
+                                        <FormLabel className="text-xs">Job Title</FormLabel>
+                                        <Input readOnly value={worker.jobTitle || ''} placeholder="Job Title (auto-filled)" />
+                                    </FormItem>
+                                     <FormItem>
+                                        <FormLabel className="text-xs">Nationality</FormLabel>
+                                        <Input readOnly value={worker.nationality || ''} placeholder="Nationality (auto-filled)" />
+                                    </FormItem>
+                                </div>
+                                <div>
+                                    <FormLabel className="text-xs">Certificates</FormLabel>
+                                    <div className="mt-2 flex flex-wrap gap-2 min-h-6 p-2 rounded-md bg-muted/50 text-sm">
+                                        {(worker.certificates && worker.certificates.length > 0) ? worker.certificates.map(cert => (
+                                            <Badge key={cert.name} variant="secondary" className="font-normal">
+                                                <FileBadge className="h-3 w-3 mr-1.5" />
+                                                {cert.name}
+                                            </Badge>
+                                        )) : <span className="text-muted-foreground">Certificates (auto-filled)</span>}
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10" disabled={fields.length <= 1}>
                                       <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                {worker.status === 'found' && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-dashed">
-                                        <div>
-                                            <p className="text-xs font-semibold text-muted-foreground">Job Title</p>
-                                            <p className="text-sm">{worker.jobTitle}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-muted-foreground">Nationality</p>
-                                            <p className="text-sm">{worker.nationality}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <p className="text-xs font-semibold text-muted-foreground">Certificates</p>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {worker.certificates && worker.certificates.length > 0 ? worker.certificates.map(cert => (
-                                                    <Badge key={cert.name} variant="secondary" className="font-normal">
-                                                        <FileBadge className="h-3 w-3 mr-1" />
-                                                        {cert.name}
-                                                    </Badge>
-                                                )) : <span className="text-sm text-muted-foreground">None</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                               </div>
                              )
                            })}
@@ -332,5 +331,3 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
         </Card>
     )
 }
-
-    

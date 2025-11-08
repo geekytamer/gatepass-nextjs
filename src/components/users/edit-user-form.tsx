@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
@@ -34,6 +34,7 @@ const formSchema = z.object({
   })).optional(),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
+  operatorId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -43,11 +44,12 @@ interface EditUserFormProps {
     onUpdateUser: (userId: string, originalUser: User, updatedData: Omit<User, 'id' | 'avatarUrl' >) => Promise<boolean>;
     sites: Site[];
     contractors: Contractor[];
+    operators: Operator[];
     isLoading: boolean;
     closeDialog: () => void;
 }
 
-export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading, closeDialog }: EditUserFormProps) {
+export function EditUserForm({ user, onUpdateUser, sites, contractors, operators, isLoading, closeDialog }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
@@ -66,6 +68,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading
             certificates: user.certificates?.map(c => ({...c, expiryDate: c.expiryDate ? parseISO(c.expiryDate) : undefined})) || [],
             assignedSiteId: user.assignedSiteId || "",
             contractorId: user.contractorId || "",
+            operatorId: user.operatorId || "",
         },
     });
     
@@ -116,6 +119,10 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading
             updatedData.contractorId = undefined;
             updatedData.company = undefined;
         }
+        if (values.role !== 'Admin' && values.role !== 'Manager') {
+            updatedData.operatorId = undefined;
+        }
+
 
         const success = await onUpdateUser(user.id, user, updatedData);
 
@@ -161,7 +168,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <FormField
                 control={form.control}
                 name="role"
@@ -218,6 +225,8 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading
                   </FormItem>
                 )}
               />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {(selectedRole === "Worker" || selectedRole === "Supervisor") && (
                 <FormField
                     control={form.control}
@@ -231,6 +240,26 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, isLoading
                             </SelectTrigger></FormControl>
                             <SelectContent>
                                 {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                )}
+                {(selectedRole === "Admin" || selectedRole === "Manager") && (
+                <FormField
+                    control={form.control}
+                    name="operatorId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Operator Company</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
+                            <FormControl><SelectTrigger>
+                                <SelectValue placeholder={isLoading ? "Loading..." : "Assign an operator"}/>
+                            </SelectTrigger></FormControl>
+                            <SelectContent>
+                                {operators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <FormMessage />

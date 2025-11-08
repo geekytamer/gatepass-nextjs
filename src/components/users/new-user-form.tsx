@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { User, UserRole, Certificate, CertificateType, Site, Contractor } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType, Site, Contractor, Operator } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2, Info } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useFirestore } from "@/firebase";
@@ -33,6 +33,7 @@ const formSchema = z.object({
   })).optional(),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
+  operatorId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -41,10 +42,11 @@ interface NewUserFormProps {
     onNewUser: (user: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber'>) => void;
     sites: Site[];
     contractors: Contractor[];
+    operators: Operator[];
     isLoading: boolean;
 }
 
-export function NewUserForm({ onNewUser, sites, contractors, isLoading }: NewUserFormProps) {
+export function NewUserForm({ onNewUser, sites, contractors, operators, isLoading }: NewUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
@@ -60,6 +62,7 @@ export function NewUserForm({ onNewUser, sites, contractors, isLoading }: NewUse
             certificates: [],
             assignedSiteId: "",
             contractorId: "",
+            operatorId: "",
         },
     });
 
@@ -106,6 +109,9 @@ export function NewUserForm({ onNewUser, sites, contractors, isLoading }: NewUse
         if(values.role !== 'Worker' && values.role !== 'Supervisor') {
             delete newUser.contractorId;
             delete newUser.company;
+        }
+        if(values.role !== 'Admin' && values.role !== 'Manager') {
+            delete newUser.operatorId;
         }
 
         onNewUser(newUser);
@@ -192,6 +198,26 @@ export function NewUserForm({ onNewUser, sites, contractors, isLoading }: NewUse
                             </SelectTrigger></FormControl>
                             <SelectContent>
                                 {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                )}
+                 {(selectedRole === "Admin" || selectedRole === "Manager") && (
+                <FormField
+                    control={form.control}
+                    name="operatorId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Operator Company</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
+                            <FormControl><SelectTrigger>
+                                <SelectValue placeholder={isLoading ? "Loading..." : "Assign an operator"}/>
+                            </SelectTrigger></FormControl>
+                            <SelectContent>
+                                {operators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <FormMessage />

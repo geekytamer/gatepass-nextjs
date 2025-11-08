@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { User, Site, UserStatus, Contractor } from "@/lib/types";
+import type { User, Site, UserStatus, Contractor, Operator } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -65,6 +65,7 @@ interface UsersTableProps {
   users: User[];
   sites: Site[];
   contractors: Contractor[];
+  operators: Operator[];
   isLoading: boolean;
   onDeleteUser: (userId: string, userName: string) => void;
   onUpdateUser: (
@@ -78,6 +79,7 @@ export function UsersTable({
   users,
   sites,
   contractors,
+  operators,
   isLoading,
   onDeleteUser,
   onUpdateUser,
@@ -104,6 +106,11 @@ export function UsersTable({
      if (!contractorId) return "";
      return contractors.find((c) => c.id === contractorId)?.name;
   }
+
+  const getOperatorName = (operatorId?: string) => {
+    if (!operatorId) return "";
+    return operators.find((o) => o.id === operatorId)?.name;
+ };
 
   const statusColors: Record<UserStatus, string> = {
     Active: "bg-green-100 text-green-800",
@@ -181,6 +188,8 @@ export function UsersTable({
                              <div className="flex items-center gap-1.5 mt-1">
                                 {user.role === 'Worker' || user.role === 'Supervisor' ? (
                                     <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company || getContractorName(user.contractorId) || 'N/A'}</Badge>
+                                ) : (user.role === 'Admin' || user.role === 'Manager') ? (
+                                  <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getOperatorName(user.operatorId) || 'N/A'}</Badge>
                                 ) : user.company ? (
                                     <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company}</Badge>
                                 ) : null}
@@ -281,6 +290,7 @@ export function UsersTable({
               onUpdateUser={onUpdateUser}
               sites={sites}
               contractors={contractors}
+              operators={operators}
               isLoading={isLoading}
               closeDialog={() => setIsEditDialogOpen(false)}
             />

@@ -16,7 +16,8 @@ export type User = {
   role: UserRole;
   status?: UserStatus;
   avatarUrl: string;
-  company?: string; // This will represent the Contractor Company Name
+  company?: string; 
+  operatorId?: string;
   contractorId?: string;
   certificates?: Certificate[];
   idCardImageUrl?: string;

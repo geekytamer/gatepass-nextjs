@@ -11,7 +11,7 @@ import {
   deleteDoc,
   updateDoc,
 } from "firebase/firestore";
-import type { User, Site, Contractor } from "@/lib/types";
+import type { User, Site, Contractor, Operator } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { NewUserForm } from "@/components/users/new-user-form";
@@ -43,6 +43,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [operators, setOperators] = useState<Operator[]>([]);
   const [loading, setLoading] = useState(true);
   const [isNewUserFormOpen, setIsNewUserFormOpen] = useState(false);
   const { toast } = useToast();
@@ -77,6 +78,13 @@ export default function UsersPage() {
           (doc) => ({ id: doc.id, ...doc.data() } as Contractor)
         );
         setContractors(contractorsData);
+    }));
+
+    unsubs.push(onSnapshot(collection(firestore, "operators"), (snapshot) => {
+        const operatorsData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Operator)
+        );
+        setOperators(operatorsData);
     }));
 
     return () => unsubs.forEach(unsub => unsub());
@@ -254,6 +262,7 @@ export default function UsersPage() {
               onNewUser={handleAddUser}
               sites={sites}
               contractors={contractors}
+              operators={operators}
               isLoading={loading}
             />
           </DialogContent>
@@ -263,6 +272,7 @@ export default function UsersPage() {
         users={users}
         sites={sites}
         contractors={contractors}
+        operators={operators}
         isLoading={loading}
         onDeleteUser={handleDeleteUser}
         onUpdateUser={handleUpdateUser}

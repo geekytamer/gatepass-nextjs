@@ -22,6 +22,7 @@ import {
   Building2,
   FileBadge,
   LogOut,
+  Briefcase,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth, useFirestore } from '@/firebase';
@@ -71,6 +72,7 @@ export function SidebarNav() {
     const allItems = [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Security', 'Supervisor'] },
       { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Manager', 'Worker', 'Supervisor'] },
+      { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['Admin'] },
       { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin'] },
       { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin'] },
       { href: '/users', label: 'Personnel', icon: Users, roles: ['Admin'] },

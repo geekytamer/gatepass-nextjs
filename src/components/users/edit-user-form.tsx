@@ -25,7 +25,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   idNumber: z.string().optional(),
-  role: z.enum(['Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
+  role: z.enum(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
@@ -53,7 +53,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
-    const roles: UserRole[] = ['Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
+    const roles: UserRole[] = ['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -115,11 +115,11 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
         if (values.role !== 'Security') {
             updatedData.assignedSiteId = undefined;
         }
-        if (values.role !== 'Worker' && values.role !== 'Supervisor') {
+        if (values.role !== 'Worker' && values.role !== 'Supervisor' && values.role !== 'Contractor Admin') {
             updatedData.contractorId = undefined;
             updatedData.company = undefined;
         }
-        if (values.role !== 'Admin' && values.role !== 'Manager') {
+        if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'System Admin') {
             updatedData.operatorId = undefined;
         }
 
@@ -227,7 +227,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
               />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {(selectedRole === "Worker" || selectedRole === "Supervisor") && (
+              {(selectedRole === "Worker" || selectedRole === "Supervisor" || selectedRole === "Contractor Admin") && (
                 <FormField
                     control={form.control}
                     name="contractorId"
@@ -247,7 +247,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                     )}
                 />
                 )}
-                {(selectedRole === "Admin" || selectedRole === "Manager") && (
+                {(selectedRole === "Manager" || selectedRole === "Operator Admin") && (
                 <FormField
                     control={form.control}
                     name="operatorId"

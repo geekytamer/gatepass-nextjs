@@ -13,7 +13,7 @@ import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
 
 export default function CompaniesPage() {
-  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
+  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin']);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -69,7 +69,7 @@ export default function CompaniesPage() {
     <div className="space-y-4 md:space-y-6">
        <header>
         <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
-        <p className="text-muted-foreground">Manage Operator and Contractor companies in the system.</p>
+        <p className="text-muted-foreground">Overview of Operator and Contractor companies in the system.</p>
       </header>
       <Tabs defaultValue="operators">
         <TabsList className="grid w-full grid-cols-2 md:w-auto md:max-w-[400px]">
@@ -77,34 +77,20 @@ export default function CompaniesPage() {
           <TabsTrigger value="contractors">Contractors</TabsTrigger>
         </TabsList>
         <TabsContent value="operators">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <OperatorsTable
-                        operators={operators}
-                        users={users}
-                        sites={sites}
-                        isLoading={loadingData}
-                    />
-                </div>
-                 <div className="lg:col-span-1">
-                    <NewCompanyForm companyType="operator" onAddCompany={handleAddCompany} />
-                 </div>
-            </div>
+            <OperatorsTable
+                operators={operators}
+                users={users}
+                sites={sites}
+                isLoading={loadingData}
+            />
         </TabsContent>
         <TabsContent value="contractors">
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <ContractorsTable
-                        contractors={contractors}
-                        users={users}
-                        accessRequests={requests}
-                        isLoading={loadingData}
-                    />
-                </div>
-                 <div className="lg:col-span-1">
-                    <NewCompanyForm companyType="contractor" onAddCompany={handleAddCompany} />
-                 </div>
-            </div>
+            <ContractorsTable
+                contractors={contractors}
+                users={users}
+                accessRequests={requests}
+                isLoading={loadingData}
+            />
         </TabsContent>
       </Tabs>
     </div>

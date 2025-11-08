@@ -17,7 +17,7 @@
         },
         "role": {
           "type": "string",
-          "enum": ["Admin", "Manager", "Security", "Visitor", "Worker", "Supervisor"],
+          "enum": ["System Admin", "Operator Admin", "Contractor Admin", "Manager", "Security", "Visitor", "Worker", "Supervisor"],
           "description": "The role of the user in the system."
         },
         "avatarUrl": {
@@ -32,6 +32,10 @@
         "contractorId": {
             "type": "string",
             "description": "The ID of the contractor company the user belongs to."
+        },
+        "operatorId": {
+            "type": "string",
+            "description": "The ID of the operator company the user belongs to."
         }
       },
       "required": ["name", "email", "role", "avatarUrl"]

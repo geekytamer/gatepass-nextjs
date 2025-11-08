@@ -186,9 +186,9 @@ export function UsersTable({
                           <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                             <div>{user.email}</div>
                              <div className="flex items-center gap-1.5 mt-1">
-                                {user.role === 'Worker' || user.role === 'Supervisor' ? (
+                                {user.role === 'Worker' || user.role === 'Supervisor' || user.role === 'Contractor Admin' ? (
                                     <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company || getContractorName(user.contractorId) || 'N/A'}</Badge>
-                                ) : (user.role === 'Admin' || user.role === 'Manager') ? (
+                                ) : (user.role === 'Manager' || user.role === 'Operator Admin') ? (
                                   <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getOperatorName(user.operatorId) || 'N/A'}</Badge>
                                 ) : user.company ? (
                                     <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company}</Badge>

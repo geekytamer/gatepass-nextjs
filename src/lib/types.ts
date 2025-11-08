@@ -1,7 +1,7 @@
 
 import type { Timestamp } from "firebase/firestore";
 
-export type UserRole = 'Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker' | 'Supervisor';
+export type UserRole = 'System Admin' | 'Operator Admin' | 'Contractor Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker' | 'Supervisor';
 export type UserStatus = 'Active' | 'Inactive';
 
 export type Certificate = {

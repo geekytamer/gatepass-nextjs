@@ -70,14 +70,14 @@ export function SidebarNav() {
     if (!role) return [];
 
     const allItems = [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Security', 'Supervisor'] },
-      { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Manager', 'Worker', 'Supervisor'] },
-      { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['Admin'] },
-      { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin'] },
-      { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin'] },
-      { href: '/users', label: 'Personnel', icon: Users, roles: ['Admin'] },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Supervisor'] },
+      { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['System Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
+      { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['System Admin'] },
+      { href: '/sites', label: 'Site Management', icon: Building2, roles: ['System Admin', 'Operator Admin'] },
+      { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['System Admin', 'Operator Admin'] },
+      { href: '/users', label: 'Personnel', icon: Users, roles: ['System Admin', 'Operator Admin', 'Contractor Admin'] },
       { href: '/scan', label: 'Scan', icon: ScanLine, roles: ['Security'] },
-      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Admin', 'Supervisor'] },
+      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'System Admin', 'Operator Admin', 'Contractor Admin'] },
     ];
 
     return allItems.filter(item => item.roles.includes(role));

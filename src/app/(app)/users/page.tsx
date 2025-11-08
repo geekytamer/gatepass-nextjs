@@ -39,7 +39,7 @@ export default function UsersPage() {
     loading: authLoading,
     isAuthorized,
     UnauthorizedComponent,
-  } = useAuthProtection(["Admin"]);
+  } = useAuthProtection(["System Admin", "Operator Admin", "Contractor Admin"]);
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);

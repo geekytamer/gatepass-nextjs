@@ -31,7 +31,7 @@ interface OperatorsTableProps {
 export function OperatorsTable({ operators, users, sites, isLoading = false }: OperatorsTableProps) {
   
   const getOperatorPersonnel = (operatorId: string) => {
-    return users.filter(u => (u.role === 'Admin' || u.role === 'Manager') && u.operatorId === operatorId);
+    return users.filter(u => (u.role === 'Admin' || u.role === 'Manager' || u.role === 'Operator Admin') && u.operatorId === operatorId);
   }
 
   const getSiteCount = (operatorId: string) => {

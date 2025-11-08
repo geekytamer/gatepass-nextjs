@@ -13,7 +13,7 @@ import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
 
 export default function CompaniesPage() {
-  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin']);
+  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [users, setUsers] = useState<User[]>([]);

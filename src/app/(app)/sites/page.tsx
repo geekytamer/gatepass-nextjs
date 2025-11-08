@@ -1,5 +1,5 @@
 
-'use client';
+'use-client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function SitesPage() {
-  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin', 'Operator Admin']);
+  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);

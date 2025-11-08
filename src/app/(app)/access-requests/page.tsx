@@ -13,9 +13,9 @@ import { useFirestore } from "@/firebase";
 import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 
 export default function AccessRequestsPage() {
-  const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
-  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'System Admin', [firestoreUser]);
-  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'System Admin', [firestoreUser]);
+  const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
+  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
+  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
   const currentUserId = authUser?.uid;
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -68,7 +68,7 @@ export default function AccessRequestsPage() {
     if (isManager) {
         const getManagedSiteIds = async () => {
             let managedSiteIds: string[] = [];
-            if (firestoreUser?.role === 'System Admin' || firestoreUser?.role === 'Operator Admin') {
+            if (firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Operator Admin') {
                 const sitesSnapshot = await getDocs(collection(firestore, 'sites'));
                 managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
             } else if (firestoreUser?.role === 'Manager') {

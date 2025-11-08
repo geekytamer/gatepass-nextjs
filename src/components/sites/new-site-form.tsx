@@ -44,7 +44,7 @@ export function NewSiteForm({ onNewSite, users, certificateTypes, isLoadingUsers
         },
     });
 
-    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin');
+    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin' || u.role === 'Operator Admin');
 
     function onSubmit(values: FormValues) {
         onNewSite({

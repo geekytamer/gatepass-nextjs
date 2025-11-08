@@ -81,7 +81,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 const usersQuery = query(collection(firestore, "users"), limit(1));
                 const existingUsersSnapshot = await getDocs(usersQuery);
                 const isFirstUser = existingUsersSnapshot.empty;
-                const role = isFirstUser ? 'System Admin' : 'Worker';
+                const role = isFirstUser ? 'Admin' : 'Worker';
 
                 const newUserProfile: Omit<User, 'id'> = {
                     name: user.email || 'New User',

@@ -17,7 +17,7 @@
         },
         "role": {
           "type": "string",
-          "enum": ["System Admin", "Operator Admin", "Contractor Admin", "Manager", "Security", "Visitor", "Worker", "Supervisor"],
+          "enum": ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Security", "Visitor", "Worker", "Supervisor"],
           "description": "The role of the user in the system."
         },
         "avatarUrl": {

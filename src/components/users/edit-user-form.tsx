@@ -25,7 +25,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   idNumber: z.string().optional(),
-  role: z.enum(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
+  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
@@ -53,7 +53,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
-    const roles: UserRole[] = ['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
+    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -119,7 +119,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             updatedData.contractorId = undefined;
             updatedData.company = undefined;
         }
-        if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'System Admin') {
+        if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'Admin') {
             updatedData.operatorId = undefined;
         }
 

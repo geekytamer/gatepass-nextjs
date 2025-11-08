@@ -25,7 +25,7 @@ import { useMediaQuery } from "react-responsive";
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
+  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
       name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
@@ -50,7 +50,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const firestore = useFirestore();
-    const roles: UserRole[] = ['System Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
+    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -110,7 +110,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
             delete newUser.contractorId;
             delete newUser.company;
         }
-        if(values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'System Admin') {
+        if(values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'Admin') {
             delete newUser.operatorId;
         }
 

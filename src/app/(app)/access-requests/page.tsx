@@ -2,10 +2,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, onSnapshot, query, where, addDoc, doc, updateDoc, serverTimestamp, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, where, updateDoc, doc, getDocs } from "firebase/firestore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
-import { NewRequestForm } from "@/components/access-requests/new-request-form";
 import { SupervisorRequestForm } from "@/components/access-requests/supervisor-request-form";
 import type { AccessRequest, Site, Operator, Contractor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +19,7 @@ export default function AccessRequestsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [currentUserRequests, setCurrentUserRequests] = useState<AccessRequest[]>([]);
+  const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -30,37 +29,37 @@ export default function AccessRequestsPage() {
   // Determine the default tab
   const defaultTab = useMemo(() => {
     if (isSupervisor) return "group-request";
-    if (firestoreUser?.role === 'Worker') return "my-requests";
     if (isManager) return "approve";
     return "my-requests";
-  }, [isSupervisor, isManager, firestoreUser?.role]);
+  }, [isSupervisor, isManager]);
 
 
   useEffect(() => {
-    if (!firestore || !currentUserId) return;
+    if (!firestore || !currentUserId || !firestoreUser) return;
     setLoading(true);
 
     const unsubs: (()=>void)[] = [];
-
-    // Listener for current user's requests (as a worker or supervisor)
     const requestsCollection = collection(firestore, "accessRequests");
-    const userRequestsQuery = query(requestsCollection, where("userId", "==", currentUserId));
-    unsubs.push(onSnapshot(userRequestsQuery, (snapshot) => {
-      const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-      setCurrentUserRequests(userRequests);
-      setLoading(false);
-    }));
-    
-    // Listener for Supervisor's submitted requests
-    if (isSupervisor) {
-      const supervisorRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
-      unsubs.push(onSnapshot(supervisorRequestsQuery, (snapshot) => {
-        const supervisorRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-        // Potentially merge or set separately if needed
-        setCurrentUserRequests(prev => [...prev.filter(r => r.supervisorId !== currentUserId), ...supervisorRequests]);
-        setLoading(false);
-      }));
+
+    // Listener for requests relevant to the current user
+    let userRequestsQuery;
+    if (firestoreUser.role === 'Worker') {
+      // Workers see requests they are a part of
+      userRequestsQuery = query(requestsCollection, where("workerIds", "array-contains", currentUserId));
+    } else if (firestoreUser.role === 'Supervisor') {
+      // Supervisors see requests they have submitted
+       userRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
+    } else {
+       // Admins/Managers see all requests for a consolidated view if needed, or customize as required
+       userRequestsQuery = query(requestsCollection);
     }
+    
+    unsubs.push(onSnapshot(userRequestsQuery, (snapshot) => {
+        const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+        setMyRequests(userRequests);
+        setLoading(false);
+    }, () => setLoading(false)));
+
 
     // Listener for manager's pending approvals
     if (isManager) {
@@ -101,7 +100,7 @@ export default function AccessRequestsPage() {
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [firestore, currentUserId, isManager, isSupervisor, firestoreUser]);
+  }, [firestore, currentUserId, isManager, firestoreUser]);
 
   const handleRequestAction = async (requestId: string, newStatus: 'Approved' | 'Denied') => {
     if (!firestore) return;
@@ -127,9 +126,6 @@ export default function AccessRequestsPage() {
     const tabs = [];
     tabs.push({ value: "my-requests", label: "My Requests" });
 
-    if (firestoreUser.role === 'Worker') {
-      tabs.push({ value: "new-request", label: "New Request" });
-    }
     if (isSupervisor) {
       tabs.push({ value: "group-request", label: "Create Group Request" });
     }
@@ -153,28 +149,8 @@ export default function AccessRequestsPage() {
         </TabsList>
         
         <TabsContent value="my-requests">
-            <RequestsTable title="My Past Requests" description="A log of your submitted access requests." requests={currentUserRequests} isLoading={loading} />
+            <RequestsTable title="My Requests" description="A log of access requests relevant to you." requests={myRequests} isLoading={loading} />
         </TabsContent>
-
-        {firestoreUser.role === 'Worker' && (
-            <TabsContent value="new-request">
-                <NewRequestForm 
-                    currentUserId={currentUserId!} 
-                    onNewRequest={async (newRequest) => {
-                        if (!firestore) return;
-                        try {
-                            await addDoc(collection(firestore, "accessRequests"), {
-                                ...newRequest,
-                                status: 'Pending',
-                                requestedAt: serverTimestamp(),
-                            });
-                        } catch (e) { console.error(e) }
-                    }}
-                    sites={sites}
-                    isLoadingSites={loading}
-                />
-            </TabsContent>
-        )}
 
         {isSupervisor && (
              <TabsContent value="group-request">

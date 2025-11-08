@@ -13,9 +13,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { AccessRequest } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, Users } from 'lucide-react';
 
 
 interface RequestsTableProps {
@@ -45,7 +45,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
     onAction?.(requestId, status);
   }
 
-  const colSpan = showActions ? 6 : 5;
+  const colSpan = showActions ? 5 : 4;
 
   return (
     <Card>
@@ -58,10 +58,9 @@ export function RequestsTable({ requests, title, description, showActions = fals
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Site</TableHead>
-                <TableHead>Access Date</TableHead>
-                <TableHead className="hidden md:table-cell">Reason</TableHead>
+                <TableHead>Request Details</TableHead>
+                <TableHead>Supervisor</TableHead>
+                <TableHead>Requested At</TableHead>
                 <TableHead>Status</TableHead>
                 {showActions && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
@@ -74,22 +73,22 @@ export function RequestsTable({ requests, title, description, showActions = fals
                   </TableCell>
                 </TableRow>
               ) : requests.length > 0 ? (
-                requests.map((request) => (
+                requests.sort((a,b) => new Date(b.requestedAt.toString()).getTime() - new Date(a.requestedAt.toString()).getTime()).map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={request.userAvatar} alt={request.userName} />
-                          <AvatarFallback>{request.userName.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="font-medium whitespace-nowrap">{request.userName}</div>
-                      </div>
+                      <div className="font-medium">{request.siteName}</div>
+                      <div className="text-sm text-muted-foreground">{request.contractorName}</div>
+                       <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                          <Users className="h-4 w-4" /> 
+                          <span>{request.workerIds?.length || 0} Workers</span>
+                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{request.siteName}</TableCell>
+                    <TableCell>
+                      <div className="font-medium whitespace-nowrap">{request.supervisorName}</div>
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {request.date ? format(new Date(request.date), 'MMMM dd, yyyy') : 'N/A'}
+                       {request.requestedAt ? format(new Date(request.requestedAt.toString()), 'dd MMM yyyy, HH:mm') : 'N/A'}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell max-w-xs truncate">{request.reason}</TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
                         {request.status}
@@ -119,3 +118,4 @@ export function RequestsTable({ requests, title, description, showActions = fals
     </Card>
   );
 }
+

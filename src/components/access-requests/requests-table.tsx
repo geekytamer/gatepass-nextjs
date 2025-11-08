@@ -16,6 +16,7 @@ import type { AccessRequest } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Check, X, Loader2, Users } from 'lucide-react';
+import type { Timestamp } from 'firebase/firestore';
 
 
 interface RequestsTableProps {
@@ -45,6 +46,17 @@ export function RequestsTable({ requests, title, description, showActions = fals
     onAction?.(requestId, status);
   }
 
+  const formatTimestamp = (timestamp: Timestamp | string | undefined) => {
+    if (!timestamp) return 'N/A';
+    if (typeof timestamp === 'string') {
+      return format(parseISO(timestamp), 'dd MMM yyyy, HH:mm');
+    }
+    if (typeof timestamp === 'object' && 'toDate' in timestamp) {
+      return format(timestamp.toDate(), 'dd MMM yyyy, HH:mm');
+    }
+    return 'Invalid Date';
+  };
+
   const colSpan = showActions ? 5 : 4;
 
   return (
@@ -73,7 +85,11 @@ export function RequestsTable({ requests, title, description, showActions = fals
                   </TableCell>
                 </TableRow>
               ) : requests.length > 0 ? (
-                requests.sort((a,b) => new Date(b.requestedAt.toString()).getTime() - new Date(a.requestedAt.toString()).getTime()).map((request) => (
+                requests.sort((a,b) => {
+                    const dateA = a.requestedAt && typeof a.requestedAt !== 'string' ? a.requestedAt.toDate().getTime() : 0;
+                    const dateB = b.requestedAt && typeof b.requestedAt !== 'string' ? b.requestedAt.toDate().getTime() : 0;
+                    return dateB - dateA;
+                }).map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
                       <div className="font-medium">{request.siteName}</div>
@@ -87,7 +103,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                       <div className="font-medium whitespace-nowrap">{request.supervisorName}</div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                       {request.requestedAt ? format(new Date(request.requestedAt.toString()), 'dd MMM yyyy, HH:mm') : 'N/A'}
+                       {formatTimestamp(request.requestedAt)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
@@ -118,4 +134,3 @@ export function RequestsTable({ requests, title, description, showActions = fals
     </Card>
   );
 }
-

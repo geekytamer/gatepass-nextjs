@@ -57,24 +57,28 @@ export default function UsersPage() {
 
 
   useEffect(() => {
-    if (!firestore || !firestoreUser?.role) {
+    if (!firestore) {
       if (!authLoading) setLoading(false);
       return;
     }
     setLoading(true);
     
     const unsubs: (() => void)[] = [];
+    
+    const role = firestoreUser?.role;
+    const operatorId = firestoreUser?.operatorId;
+    const contractorId = firestoreUser?.contractorId;
 
     let usersQuery;
-    switch (firestoreUser.role) {
+    switch (role) {
       case 'Admin':
         usersQuery = collection(firestore, "users");
         break;
       case 'Operator Admin':
-        usersQuery = query(collection(firestore, "users"), where('operatorId', '==', firestoreUser.operatorId));
+        usersQuery = query(collection(firestore, "users"), where('operatorId', '==', operatorId));
         break;
       case 'Contractor Admin':
-        usersQuery = query(collection(firestore, "users"), where('contractorId', '==', firestoreUser.contractorId));
+        usersQuery = query(collection(firestore, "users"), where('contractorId', '==', contractorId));
         break;
       default:
         // For other roles, don't fetch any users from this page
@@ -148,26 +152,33 @@ export default function UsersPage() {
       
       let operatorId = newUser.operatorId;
       let contractorId = newUser.contractorId;
+      let company = newUser.company;
 
-      // Inherit company ID from the admin creating the user
       if (firestoreUser?.role === 'Operator Admin') {
           operatorId = firestoreUser.operatorId;
+          const operator = operators.find(op => op.id === operatorId);
+          company = operator?.name;
       }
       if (firestoreUser?.role === 'Contractor Admin') {
           contractorId = firestoreUser.contractorId;
+          const contractor = contractors.find(c => c.id === contractorId);
+          company = contractor?.name;
       }
 
       const userData: Partial<User> = {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        company: newUser.company,
-        operatorId: operatorId,
-        contractorId: contractorId,
-        assignedSiteId: newUser.assignedSiteId,
+        company: company || "",
+        operatorId: operatorId || "",
+        contractorId: contractorId || "",
+        assignedSiteId: newUser.assignedSiteId || "",
         status: "Inactive",
         avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
       };
+
+      // Remove undefined fields before setting doc
+      Object.keys(userData).forEach(key => userData[key as keyof typeof userData] === undefined && delete userData[key as keyof typeof userData]);
 
       await setDoc(userRef, userData);
 
@@ -227,7 +238,11 @@ export default function UsersPage() {
       }
 
       const userRef = doc(firestore, "users", userId);
-      await updateDoc(userRef, updatedData as { [key: string]: any });
+      const updatePayload = {...updatedData};
+      // Remove undefined fields before setting doc
+      Object.keys(updatePayload).forEach(key => updatePayload[key as keyof typeof updatePayload] === undefined && delete updatePayload[key as keyof typeof updatePayload]);
+
+      await updateDoc(userRef, updatePayload as { [key: string]: any });
 
       toast({ title: "User Updated", description: `${updatedData.name}'s profile has been updated.` });
       return true;

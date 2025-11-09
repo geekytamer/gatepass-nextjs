@@ -16,35 +16,38 @@ export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
-  const [loadingSites, setLoadingSites] = useState(true);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingCerts, setLoadingCerts] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
   const { toast } = useToast();
   const firestore = useFirestore();
 
   useEffect(() => {
     if (!firestore || !firestoreUser) return;
 
-    setLoadingSites(true);
+    setLoadingData(true);
     const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
         const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
         setSites(sitesData);
-        setLoadingSites(false);
     });
 
-    setLoadingUsers(true);
     const usersUnsub = onSnapshot(collection(firestore, "users"), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
         setUsers(usersData);
-        setLoadingUsers(false);
     });
 
-    setLoadingCerts(true);
     const certsUnsub = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
         const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
         setCertificateTypes(certsData);
-        setLoadingCerts(false);
     });
+
+    // Use Promise.all to set loading to false after initial fetches
+     const initialFetches = Promise.all([
+        new Promise(resolve => onSnapshot(collection(firestore, "sites"), () => resolve(true), () => resolve(true))),
+        new Promise(resolve => onSnapshot(collection(firestore, "users"), () => resolve(true), () => resolve(true))),
+        new Promise(resolve => onSnapshot(collection(firestore, "certificateTypes"), () => resolve(true), () => resolve(true))),
+     ]);
+     
+     initialFetches.then(() => setLoadingData(false));
+
 
     return () => {
       sitesUnsub();
@@ -112,7 +115,7 @@ export default function SitesPage() {
               sites={sites} 
               users={users}
               certificateTypes={certificateTypes}
-              isLoading={loadingSites || loadingUsers || loadingCerts}
+              isLoading={loadingData}
               onUpdateSite={handleUpdateSite}
             />
         </TabsContent>
@@ -121,8 +124,8 @@ export default function SitesPage() {
               onNewSite={handleAddSite}
               users={users}
               certificateTypes={certificateTypes}
-              isLoadingUsers={loadingUsers}
-              isLoadingCerts={loadingCerts}
+              isLoadingUsers={loadingData}
+              isLoadingCerts={loadingData}
             />
         </TabsContent>
       </Tabs>

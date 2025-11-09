@@ -14,9 +14,9 @@ import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 
 export default function AccessRequestsPage() {
   const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
-  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
-  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser]);
-  const isWorker = useMemo(() => firestoreUser?.role === 'Worker', [firestoreUser]);
+  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
+  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
+  const isWorker = useMemo(() => firestoreUser?.role === 'Worker', [firestoreUser?.role]);
   const currentUserId = authUser?.uid;
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -40,7 +40,7 @@ export default function AccessRequestsPage() {
 
 
   useEffect(() => {
-    if (!firestore || !currentUserId || !firestoreUser) return;
+    if (!firestore || !currentUserId || !firestoreUser?.role) return;
     setLoading(true);
 
     const unsubs: (()=>void)[] = [];
@@ -107,7 +107,7 @@ export default function AccessRequestsPage() {
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [firestore, currentUserId, isManager, firestoreUser, isSupervisor, isWorker]);
+  }, [firestore, currentUserId, isManager, isSupervisor, isWorker, firestoreUser?.role, firestoreUser?.id]);
 
   const handleOpenApprovalDialog = (request: AccessRequest) => {
     setApprovalRequest(request);

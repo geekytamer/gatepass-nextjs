@@ -27,6 +27,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
       if (pathname !== '/login') {
         router.push('/login');
       }
+      setLoading(false); // Stop loading if user is not authenticated
       return;
     }
 
@@ -58,7 +59,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
     );
 
     return () => unsubscribe();
-  }, [user, authLoading, firestore, pathname, router, allowedRoles]);
+  }, [user, authLoading, firestore, pathname, router, JSON.stringify(allowedRoles)]); // Stabilize dependency
 
   const UnauthorizedComponent = () => (
     <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">

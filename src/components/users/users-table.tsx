@@ -31,6 +31,7 @@ import {
   MoreHorizontal,
   Pencil,
   Briefcase,
+  Download,
 } from "lucide-react";
 import {
   Dialog,
@@ -60,6 +61,7 @@ import { format, isBefore, parseISO } from "date-fns";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { EditUserForm } from "./edit-user-form";
+import { useToast } from "@/hooks/use-toast";
 
 interface UsersTableProps {
   users: User[];
@@ -88,11 +90,41 @@ export function UsersTable({
 }: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const { toast } = useToast();
 
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
   };
+
+  const handleDownloadQr = async (user: User) => {
+    const QRCode = await import('qrcode');
+    try {
+        const dataUrl = await QRCode.toDataURL(user.id, {
+            errorCorrectionLevel: 'H',
+            width: 512,
+            margin: 2,
+            color: {
+                dark: '#0D1A2E',
+                light: '#FFFFFF'
+            }
+        });
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `QR_Code_${user.name.replace(/\s+/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (error) {
+        console.error('Failed to generate or download QR code', error);
+        toast({
+            variant: "destructive",
+            title: "Download Failed",
+            description: "Could not generate the QR code for download."
+        });
+    }
+  };
+
 
   const isCertificateExpired = (expiryDate?: string) => {
     if (!expiryDate) return false;
@@ -229,6 +261,9 @@ export function UsersTable({
                                   onSelect={() => handleEditClick(user)}
                                 >
                                   <Pencil className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleDownloadQr(user)}>
+                                  <Download className="mr-2 h-4 w-4" /> Download QR
                                 </DropdownMenuItem>
                                 {user.id !== currentUser.id && (
                                   <AlertDialog>

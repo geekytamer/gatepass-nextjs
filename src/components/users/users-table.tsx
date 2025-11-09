@@ -73,6 +73,7 @@ interface UsersTableProps {
     originalUser: User,
     updatedData: Omit<User, "id" | "avatarUrl">
   ) => Promise<boolean>;
+  currentUser: User;
 }
 
 export function UsersTable({
@@ -83,6 +84,7 @@ export function UsersTable({
   isLoading,
   onDeleteUser,
   onUpdateUser,
+  currentUser,
 }: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -187,7 +189,7 @@ export function UsersTable({
                             <div>{user.email}</div>
                              <div className="flex items-center gap-1.5 mt-1">
                                 {user.role === 'Worker' || user.role === 'Supervisor' || user.role === 'Contractor Admin' ? (
-                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company || getContractorName(user.contractorId) || 'N/A'}</Badge>
+                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getContractorName(user.contractorId) || user.company || 'N/A'}</Badge>
                                 ) : (user.role === 'Manager' || user.role === 'Operator Admin') ? (
                                   <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getOperatorName(user.operatorId) || 'N/A'}</Badge>
                                 ) : user.company ? (
@@ -228,43 +230,46 @@ export function UsersTable({
                                 >
                                   <Pencil className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem
-                                      onSelect={(e) => e.preventDefault()}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                                      <span className="text-destructive">
-                                        Delete
-                                      </span>
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Are you absolutely sure?
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This action cannot be undone. This will
-                                        permanently delete the user account for{" "}
-                                        {user.name} and remove all associated
-                                        data.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Cancel
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() =>
-                                          onDeleteUser(user.id, user.name)
-                                        }
+                                {user.id !== currentUser.id && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="text-destructive focus:text-destructive"
                                       >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        <span>
+                                          Delete
+                                        </span>
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Are you absolutely sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This action cannot be undone. This will
+                                          permanently delete the user account for{" "}
+                                          {user.name} and remove all associated
+                                          data.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            onDeleteUser(user.id, user.name)
+                                          }
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

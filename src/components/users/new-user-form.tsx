@@ -29,9 +29,12 @@ interface NewUserFormProps {
     operators: Operator[];
     isLoading: boolean;
     currentUserRole: UserRole;
+    currentUserId: string;
+    currentUserOperatorId?: string;
+    currentUserContractorId?: string;
 }
 
-export function NewUserForm({ onNewUser, sites, contractors, operators, isLoading, currentUserRole }: NewUserFormProps) {
+export function NewUserForm({ onNewUser, sites, contractors, operators, isLoading, currentUserRole, currentUserOperatorId, currentUserContractorId }: NewUserFormProps) {
 
     const availableRoles = useMemo(() => {
         if (currentUserRole === 'Admin') {
@@ -66,8 +69,20 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
     async function onSubmit(values: FormValues) {
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
 
+        let operatorId = values.operatorId;
+        if (currentUserRole === 'Operator Admin') {
+            operatorId = currentUserOperatorId;
+        }
+
+        let contractorId = values.contractorId;
+        if (currentUserRole === 'Contractor Admin') {
+            contractorId = currentUserContractorId;
+        }
+
         const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'> = {
             ...values,
+            operatorId,
+            contractorId,
             company: selectedContractor?.name || '',
             role: values.role as UserRole,
         };
@@ -82,6 +97,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
         if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'Admin') {
             delete newUser.operatorId;
         }
+
 
         onNewUser(newUser);
         form.reset();
@@ -163,7 +179,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                   </FormItem>
                 )}
               />
-               {(selectedRole === "Worker" || selectedRole === "Supervisor" || selectedRole === 'Contractor Admin') && (
+               {(selectedRole === "Contractor Admin") && currentUserRole === 'Admin' && (
                 <FormField
                     control={form.control}
                     name="contractorId"
@@ -183,7 +199,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                     )}
                 />
                 )}
-                 {(selectedRole === "Manager" || selectedRole === "Operator Admin") && (
+                 {(selectedRole === "Operator Admin") && currentUserRole === 'Admin' && (
                 <FormField
                     control={form.control}
                     name="operatorId"

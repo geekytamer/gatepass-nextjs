@@ -301,6 +301,9 @@ export default function UsersPage() {
                   operators={operators}
                   isLoading={loading}
                   currentUserRole={firestoreUser.role}
+                  currentUserId={firestoreUser.id}
+                  currentUserOperatorId={firestoreUser.operatorId}
+                  currentUserContractorId={firestoreUser.contractorId}
                 />
             </DialogContent>
             </Dialog>
@@ -314,6 +317,7 @@ export default function UsersPage() {
         isLoading={loading}
         onDeleteUser={handleDeleteUser}
         onUpdateUser={handleUpdateUser}
+        currentUser={firestoreUser}
       />
     </div>
   );

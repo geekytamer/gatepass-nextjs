@@ -48,10 +48,10 @@ export default function AccessRequestsPage() {
 
     // Listener for requests relevant to the current user
     let userRequestsQuery;
-    if (firestoreUser.role === 'Worker') {
+    if (isWorker) {
       // Workers see requests they are a part of
       userRequestsQuery = query(requestsCollection, where("workerIds", "array-contains", currentUserId));
-    } else if (firestoreUser.role === 'Supervisor' || firestoreUser.role === 'Contractor Admin') {
+    } else if (isSupervisor) {
       // Supervisors see requests they have submitted
        userRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
     } else {
@@ -107,7 +107,7 @@ export default function AccessRequestsPage() {
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [firestore, currentUserId, isManager, firestoreUser]);
+  }, [firestore, currentUserId, isManager, firestoreUser, isSupervisor, isWorker]);
 
   const handleOpenApprovalDialog = (request: AccessRequest) => {
     setApprovalRequest(request);

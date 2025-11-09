@@ -1,5 +1,5 @@
 
-'use-client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
@@ -53,14 +53,15 @@ export default function SitesPage() {
     };
   }, [firestore, firestoreUser]);
 
-  const handleAddSite = async (newSite: Omit<Site, 'id'>) => {
-    if (!firestore) {
-        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+  const handleAddSite = async (newSite: Omit<Site, 'id' | 'operatorId'>) => {
+    if (!firestore || !firestoreUser?.operatorId) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available or you are not assigned to an operator." });
         return;
     }
     try {
         await addDoc(collection(firestore, "sites"), {
             ...newSite,
+            operatorId: firestoreUser.operatorId,
             createdAt: serverTimestamp()
         });
          toast({ title: "Site Created", description: `The site "${newSite.name}" has been created.` });
@@ -73,15 +74,17 @@ export default function SitesPage() {
   const handleUpdateSite = async (siteId: string, updatedData: Partial<Omit<Site, 'id'>>) => {
     if (!firestore) {
       toast({ variant: "destructive", title: "Error", description: "Database not available." });
-      return;
+      return false;
     }
     try {
       const siteRef = doc(firestore, 'sites', siteId);
       await updateDoc(siteRef, updatedData);
-      toast({ title: "Site Updated", description: `The site "${updatedData.name}" has been updated.` });
+      toast({ title: "Site Updated", description: `The site has been updated.` });
+      return true;
     } catch (error) {
       console.error("Error updating site:", error);
       toast({ variant: "destructive", title: "Update Error", description: "Could not update the site." });
+      return false;
     }
   };
 

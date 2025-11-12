@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, Query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Users, Hourglass, LogIn, Building, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,8 +12,12 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Responsive
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import * as RechartsPrimitive from 'recharts';
 
-export function StatsCards() {
-    const { firestoreUser, loading: authLoading } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Supervisor']);
+interface StatsCardsProps {
+    siteId: string;
+}
+
+export function StatsCards({ siteId }: StatsCardsProps) {
+    const { firestoreUser, loading: authLoading } = useAuthProtection(['Admin', 'Operator Admin', 'Manager']);
     const firestore = useFirestore();
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -34,13 +38,12 @@ export function StatsCards() {
         const role = firestoreUser.role;
         const userId = firestoreUser.id;
 
-        const canViewAllStats = role === 'Admin' || role === 'Operator Admin';
         const isManager = role === 'Manager';
 
 
-        const setupListeners = async (siteIds?: string[]) => {
-          // Total Users & Visitors
-          if (canViewAllStats) {
+        const setupListeners = async (filterSiteIds?: string[]) => {
+          // Global stats - only for admins with 'all sites' selected
+          if (firestoreUser.role !== 'Manager' && siteId === 'all') {
             unsubs.push(onSnapshot(collection(firestore, 'users'), (snapshot) => {
                 const users = snapshot.docs.map(doc => doc.data() as User);
                 setStats(prev => ({
@@ -55,18 +58,22 @@ export function StatsCards() {
           }
 
           // Pending Requests
-          let requestsQuery = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
-          if (siteIds) {
-            requestsQuery = query(requestsQuery, where('siteId', 'in', siteIds));
+          let requestsQuery: Query = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
+          if (siteId !== 'all') {
+            requestsQuery = query(requestsQuery, where('siteId', '==', siteId));
+          } else if (filterSiteIds) {
+            requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
           }
           unsubs.push(onSnapshot(requestsQuery, (snapshot) => {
               setStats(prev => ({ ...prev, pendingRequests: snapshot.size }));
           }));
 
           // Checked-in count and by-company breakdown
-          let activityQuery;
-          if (siteIds) {
-              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', siteIds));
+          let activityQuery: Query;
+           if (siteId !== 'all') {
+              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', '==', siteId));
+          } else if (filterSiteIds) {
+              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', filterSiteIds));
           } else {
               activityQuery = collection(firestore, 'gateActivity');
           }
@@ -95,7 +102,6 @@ export function StatsCards() {
           }));
         }
 
-
         if (isManager) {
              const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
              unsubs.push(onSnapshot(sitesQuery, (sitesSnapshot) => {
@@ -106,15 +112,13 @@ export function StatsCards() {
                   setLoading(false);
                 }
              }));
-        } else if (canViewAllStats) {
+        } else { // Admin or Operator Admin
           setupListeners();
-        } else {
-            setLoading(false);
         }
         
         return () => unsubs.forEach(unsub => unsub());
 
-    }, [firestore, firestoreUser?.id, firestoreUser?.role]);
+    }, [firestore, firestoreUser, siteId]);
     
     function processActivity(activities: GateActivity[], users: User[]) {
         const userMap = new Map(users.map(u => [u.id, u]));
@@ -144,13 +148,13 @@ export function StatsCards() {
             return acc;
         }, {} as Record<string, number>);
 
-        const onSiteByCompanyData = Object.entries(companyCounts).map(([name, count]) => ({ name, count }));
+        const onSiteByCompanyData = Object.entries(companyCounts).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count);
 
         return { checkedInCount, onSiteByCompanyData };
     }
 
 
-    if (authLoading || (loading && (firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Manager'))) {
+    if (authLoading || loading) {
         return (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
@@ -169,13 +173,15 @@ export function StatsCards() {
         );
     }
   
-  if (!firestoreUser || (firestoreUser.role !== 'Admin' && firestoreUser.role !== 'Operator Admin' && firestoreUser.role !== 'Manager')) {
+  if (!firestoreUser) {
       return null;
   }
 
+  const renderGlobalStats = firestoreUser.role !== 'Manager' && siteId === 'all';
+
   const renderCards = () => (
       <>
-       {(firestoreUser.role === 'Admin' || firestoreUser.role === 'Operator Admin') && (
+       {renderGlobalStats && (
         <>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -206,7 +212,7 @@ export function StatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.pendingRequests}</div>
-          <p className="text-xs text-muted-foreground">Awaiting your approval</p>
+          <p className="text-xs text-muted-foreground">{siteId === 'all' ? 'Awaiting approval' : 'For this site'}</p>
         </CardContent>
       </Card>
       <Card>
@@ -226,35 +232,44 @@ export function StatsCards() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={`grid gap-4 ${renderGlobalStats ? 'md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
         {renderCards()}
       </div>
       <Card>
         <CardHeader>
             <CardTitle>On-Site Personnel by Company</CardTitle>
+            <CardDescription>{siteId === 'all' ? 'Breakdown across all sites.' : 'Breakdown for the selected site.'}</CardDescription>
         </CardHeader>
         <CardContent>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                <BarChart layout="vertical" data={onSiteByCompany} margin={{ left: 10, right: 10 }}>
-                    <CartesianGrid horizontal={false} />
-                    <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} />
-                    <XAxis type="number" hide />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" radius={4}>
-                         {onSiteByCompany.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={chartConfig[entry.name]?.color || 'hsl(var(--chart-1))'} />
-                         ))}
-                         {onSiteByCompany.map((entry, index) => (
-                            <RechartsPrimitive.Label
-                                key={`label-${index}`}
-                                content={({ x, y, width, height, value }) => 
-                                <text x={x! + width! + 5} y={y! + height!/2} dy={4} className="fill-foreground text-sm font-medium">{value}</text>
-                                }
-                            />
-                        ))}
-                    </Bar>
-                </BarChart>
-            </ChartContainer>
+             {onSiteByCompany.length > 0 ? (
+                <ChartContainer config={chartConfig} className="h-[200px] w-full">
+                    <BarChart layout="vertical" data={onSiteByCompany} margin={{ left: 10, right: 30 }}>
+                        <CartesianGrid horizontal={false} />
+                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={100} />
+                        <XAxis type="number" hide />
+                        <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" radius={4}>
+                            {onSiteByCompany.map((entry) => (
+                                <Cell key={`cell-${entry.name}`} fill={chartConfig[entry.name]?.color} />
+                            ))}
+                            {onSiteByCompany.map((entry, index) => (
+                                <RechartsPrimitive.Label
+                                    key={`label-${index}`}
+                                    position="right"
+                                    offset={10}
+                                    content={({ x, y, width, height, value }) => 
+                                    <text x={x! + width!} y={y! + height!/2} dy={4} className="fill-foreground text-sm font-medium">{value}</text>
+                                    }
+                                />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ChartContainer>
+            ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                    No personnel currently on-site.
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>

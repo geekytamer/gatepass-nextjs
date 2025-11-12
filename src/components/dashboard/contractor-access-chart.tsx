@@ -19,11 +19,15 @@ import {
   ChartConfig
 } from '@/components/ui/chart';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, Query } from 'firebase/firestore';
 import type { AccessRequest } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-export function ContractorAccessChart() {
+interface ContractorAccessChartProps {
+    siteId: string;
+}
+
+export function ContractorAccessChart({ siteId }: ContractorAccessChartProps) {
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
   const [loading, setLoading] = useState(true);
@@ -33,10 +37,14 @@ export function ContractorAccessChart() {
     if (!firestore) return;
 
     setLoading(true);
-    const requestsQuery = query(
+    let requestsQuery: Query = query(
       collection(firestore, 'accessRequests'),
       where('status', '==', 'Approved')
     );
+
+    if (siteId !== 'all') {
+        requestsQuery = query(requestsQuery, where('siteId', '==', siteId));
+    }
 
     const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
       const requests = snapshot.docs.map(doc => doc.data() as AccessRequest);
@@ -68,13 +76,15 @@ export function ContractorAccessChart() {
     });
 
     return () => unsubscribe();
-  }, [firestore]);
+  }, [firestore, siteId]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Approved Access by Contractor</CardTitle>
-        <CardDescription>Distribution of approved access requests across all contractor companies.</CardDescription>
+        <CardDescription>
+            {siteId === 'all' ? 'Distribution of approved requests across all contractors and sites.' : 'Distribution for the selected site.'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex items-center justify-center">
         {loading ? (

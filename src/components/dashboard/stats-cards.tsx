@@ -10,6 +10,7 @@ import type { User, AccessRequest, GateActivity, Site } from '@/lib/types';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
+import * as RechartsPrimitive from 'recharts';
 
 
 const chartConfig = {

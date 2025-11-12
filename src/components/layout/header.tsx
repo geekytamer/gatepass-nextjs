@@ -1,3 +1,4 @@
+
 'use client';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
@@ -9,8 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Bell, LifeBuoy, LogOut, Settings, User } from 'lucide-react';
+import { Search, Bell, LifeBuoy, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import { useAuth } from '@/firebase';
@@ -80,10 +80,9 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
-              <Avatar className="h-8 w-8">
-                 {firestoreUser && <AvatarImage src={firestoreUser.avatarUrl} alt={firestoreUser.name} />}
-                <AvatarFallback>{firestoreUser ? getInitials(firestoreUser.name) : '...'}</AvatarFallback>
-              </Avatar>
+               <div className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
+                  {firestoreUser ? getInitials(firestoreUser.name) : <UserIcon />}
+               </div>
               <span className="sr-only">Toggle user menu</span>
             </Button>
           </DropdownMenuTrigger>
@@ -98,7 +97,7 @@ export function Header() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/profile"><User className="mr-2 h-4 w-4" /><span>Profile</span></Link>
+              <Link href="/profile"><UserIcon className="mr-2 h-4 w-4" /><span>Profile</span></Link>
             </DropdownMenuItem>
             <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /><span>Settings</span></DropdownMenuItem>
             <DropdownMenuItem><LifeBuoy className="mr-2 h-4 w-4" /><span>Support</span></DropdownMenuItem>

@@ -4,14 +4,14 @@
 import React from 'react';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import type { User, Site } from '@/lib/types';
-import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, LogIn, FileWarning } from 'lucide-react';
+import type { User, Site, AccessRequest, Certificate } from '@/lib/types';
+import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, LogIn, FileWarning, CalendarDays, Briefcase } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 interface UserFoundDialogProps {
   scannedUser: User;
@@ -19,10 +19,12 @@ interface UserFoundDialogProps {
   certificateStatus: { missing: string[], expired: string[] };
   lastActivity: 'Check-in' | 'Check-out' | null;
   assignedSite: Site;
+  accessRequest: AccessRequest | null;
+  workerData?: { jobTitle?: string };
   onClose: () => void;
 }
 
-export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, onClose }: UserFoundDialogProps) {
+export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, accessRequest, workerData, onClose }: UserFoundDialogProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -33,7 +35,6 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
       await addDoc(collection(firestore, "gateActivity"), {
         userId: scannedUser.id,
         userName: scannedUser.name,
-        userAvatar: scannedUser.avatarUrl,
         timestamp: serverTimestamp(),
         type: type,
         gate: `${assignedSite.name} Main Gate`,
@@ -59,6 +60,10 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
         default: return 'Access denied due to an unknown reason.';
     }
   }
+  
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  }
 
   return (
     <>
@@ -69,15 +74,19 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
 
       <div className="grid gap-4 py-4">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={scannedUser.avatarUrl} alt={scannedUser.name} />
-            <AvatarFallback>{scannedUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+          <div className="h-20 w-20 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold text-3xl">
+              {getInitials(scannedUser.name)}
+          </div>
           <div className="space-y-1 text-center sm:text-left">
             <h3 className="text-xl font-semibold">{scannedUser.name}</h3>
             <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
               <UserIcon className="h-4 w-4" /> <span>{scannedUser.role}</span>
             </div>
+             {workerData?.jobTitle && (
+               <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
+                  <Briefcase className="h-4 w-4" /> <span>{workerData.jobTitle}</span>
+               </div>
+             )}
             <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
               <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
             </div>
@@ -93,6 +102,18 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
               {isAccessGranted ? <Check className="mr-2 h-5 w-5" /> : <ShieldX className="mr-2 h-5 w-5" />}
               {isAccessGranted ? 'Access Approved' : 'Access Denied'}
             </Badge>
+        
+            {accessRequest && (
+              <Alert variant="default" className="flex items-start gap-3">
+                <CalendarDays className="h-4 w-4 mt-1" />
+                <div>
+                    <AlertTitle>Access Validity</AlertTitle>
+                    <AlertDescription>
+                        {format(parseISO(accessRequest.validFrom!), 'PPP')} - {accessRequest.expiresAt === 'Permanent' ? 'Permanent' : format(parseISO(accessRequest.expiresAt!), 'PPP')}
+                    </AlertDescription>
+                </div>
+              </Alert>
+            )}
 
           {accessStatus !== 'approved' && accessStatus !== null && (
             <Alert variant="destructive">

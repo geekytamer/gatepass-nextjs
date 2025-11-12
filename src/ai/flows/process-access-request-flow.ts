@@ -106,7 +106,6 @@ const processAccessRequestFlow = ai.defineFlow(
                 contractorId: input.contractorId,
                 role: 'Worker',
                 status: 'Active',
-                avatarUrl: `https://picsum.photos/seed/${userId}/200/200`,
                 certificates: workerData.certificates || [],
             };
             await firestore.collection('users').doc(userId).set(newUserProfile);

@@ -88,7 +88,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     email: user.email!,
                     role: role, 
                     status: 'Inactive', 
-                    avatarUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
                 };
                 await setDoc(userRef, newUserProfile);
                 console.log(`Created new user profile with role: ${role}`);

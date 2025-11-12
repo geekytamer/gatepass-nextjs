@@ -41,7 +41,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface EditUserFormProps {
     user: User;
-    onUpdateUser: (userId: string, originalUser: User, updatedData: Omit<User, 'id' | 'avatarUrl' >) => Promise<boolean>;
+    onUpdateUser: (userId: string, originalUser: User, updatedData: Omit<User, 'id' >) => Promise<boolean>;
     sites: Site[];
     contractors: Contractor[];
     operators: Operator[];
@@ -102,7 +102,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
 
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
 
-        const updatedData: Omit<User, 'id' | 'avatarUrl' | 'idCardImageUrl'> = {
+        const updatedData: Omit<User, 'id' | 'idCardImageUrl'> = {
             ...values,
             company: selectedContractor?.name || user.company || '',
             role: values.role,

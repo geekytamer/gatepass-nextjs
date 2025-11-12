@@ -20,11 +20,6 @@
           "enum": ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Security", "Visitor", "Worker", "Supervisor"],
           "description": "The role of the user in the system."
         },
-        "avatarUrl": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the user's avatar image."
-        },
         "company": {
           "type": "string",
           "description": "The name of the contractor company the user belongs to."
@@ -38,7 +33,7 @@
             "description": "The ID of the operator company the user belongs to."
         }
       },
-      "required": ["name", "email", "role", "avatarUrl"]
+      "required": ["name", "email", "role"]
     },
     "AccessRequest": {
       "title": "Access Request",
@@ -70,13 +65,12 @@
       "properties": {
         "userId": { "type": "string" },
         "userName": { "type": "string" },
-        "userAvatar": { "type": "string", "format": "uri" },
         "timestamp": { "type": "string", "format": "date-time" },
         "type": { "type": "string", "enum": ["Check-in", "Check-out"] },
         "gate": { "type": "string" },
         "siteId": { "type": "string" }
       },
-      "required": ["userId", "userName", "userAvatar", "timestamp", "type", "gate", "siteId"]
+      "required": ["userId", "userName", "timestamp", "type", "gate", "siteId"]
     },
     "Site": {
         "title": "Site",

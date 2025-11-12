@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useState } from 'react';
@@ -37,7 +38,6 @@ export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegi
         email: visitorEmail || `visitor_${Date.now()}@gatepass.local`,
         role: 'Visitor' as const,
         status: 'Active' as const,
-        avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
         idNumber: visitorIdNumber,
         createdAt: serverTimestamp()
       };
@@ -48,7 +48,6 @@ export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegi
       await addDoc(collection(firestore, "gateActivity"), {
         userId: docRef.id,
         userName: newUser.name,
-        userAvatar: newUser.avatarUrl,
         timestamp: serverTimestamp(),
         type: 'Check-in',
         gate: `${assignedSite.name} Main Gate`,

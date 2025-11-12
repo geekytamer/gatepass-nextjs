@@ -13,11 +13,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { GateActivity } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { User } from 'lucide-react';
 
 export function RecentActivity() {
     const [recentActivity, setRecentActivity] = useState<GateActivity[]>([]);
@@ -41,6 +41,10 @@ export function RecentActivity() {
 
         return () => unsubscribe();
     }, [firestore]);
+
+    const getInitials = (name: string) => {
+      return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
 
 
   return (
@@ -74,10 +78,9 @@ export function RecentActivity() {
                 <TableRow key={activity.id}>
                     <TableCell>
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                        <AvatarImage src={activity.userAvatar} alt={activity.userName} />
-                        <AvatarFallback>{activity.userName.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                        <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
+                          {getInitials(activity.userName)}
+                        </div>
                         <div className="font-medium">{activity.userName}</div>
                       </div>
                     </TableCell>

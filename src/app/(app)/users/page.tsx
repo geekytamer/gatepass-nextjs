@@ -122,7 +122,7 @@ export default function UsersPage() {
   };
 
   const handleAddUser = async (
-    newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'>
+    newUser: Omit<User, 'id' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'>
   ) => {
     if (!firestore) {
       toast({
@@ -158,11 +158,18 @@ export default function UsersPage() {
           operatorId = firestoreUser.operatorId;
           const operator = operators.find(op => op.id === operatorId);
           company = operator?.name;
+      } else if (newUser.role === 'Operator Admin' || newUser.role === 'Manager') {
+        const operator = operators.find(op => op.id === operatorId);
+        company = operator?.name;
       }
+      
       if (firestoreUser?.role === 'Contractor Admin') {
           contractorId = firestoreUser.contractorId;
           const contractor = contractors.find(c => c.id === contractorId);
           company = contractor?.name;
+      } else if (newUser.role === 'Contractor Admin' || newUser.role === 'Supervisor' || newUser.role === 'Worker') {
+        const contractor = contractors.find(c => c.id === contractorId);
+        company = contractor?.name;
       }
 
       const userData: Partial<User> = {
@@ -174,11 +181,10 @@ export default function UsersPage() {
         contractorId: contractorId || "",
         assignedSiteId: newUser.assignedSiteId || "",
         status: "Inactive",
-        avatarUrl: `https://picsum.photos/seed/${Date.now()}/200/200`,
       };
 
       // Remove undefined fields before setting doc
-      Object.keys(userData).forEach(key => userData[key as keyof typeof userData] === undefined && delete userData[key as keyof typeof userData]);
+      Object.keys(userData).forEach(key => (userData as any)[key] === undefined && delete (userData as any)[key]);
 
       await setDoc(userRef, userData);
 
@@ -222,7 +228,7 @@ export default function UsersPage() {
  const handleUpdateUser = async (
     userId: string,
     originalUser: User,
-    updatedData: Omit<User, "id" | "avatarUrl">
+    updatedData: Omit<User, "id">
   ) => {
     if (!firestore) {
       toast({ variant: "destructive", title: "Error", description: "Database not available." });
@@ -240,7 +246,7 @@ export default function UsersPage() {
       const userRef = doc(firestore, "users", userId);
       const updatePayload = {...updatedData};
       // Remove undefined fields before setting doc
-      Object.keys(updatePayload).forEach(key => updatePayload[key as keyof typeof updatePayload] === undefined && delete updatePayload[key as keyof typeof updatePayload]);
+      Object.keys(updatePayload).forEach(key => (updatePayload as any)[key] === undefined && delete (updatePayload as any)[key]);
 
       await updateDoc(userRef, updatePayload as { [key: string]: any });
 

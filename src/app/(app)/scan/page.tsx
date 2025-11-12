@@ -18,6 +18,7 @@ import { format, isBefore, parseISO, isAfter } from 'date-fns';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
+import { serverFetchWorkerData } from '@/app/actions/workerActions';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
 type LastActivity = 'Check-in' | 'Check-out' | null;
@@ -25,6 +26,10 @@ type CertificateStatus = {
     missing: string[];
     expired: string[];
 };
+
+type WorkerData = {
+  jobTitle?: string
+}
 
 export default function ScanPage() {
     const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
@@ -36,6 +41,8 @@ export default function ScanPage() {
     const [certificateStatus, setCertificateStatus] = useState<CertificateStatus>({ missing: [], expired: [] });
     const [lastActivity, setLastActivity] = useState<LastActivity>(null);
     const [isScannerPaused, setIsScannerPaused] = useState(false);
+    const [accessRequest, setAccessRequest] = useState<AccessRequest | null>(null);
+    const [workerData, setWorkerData] = useState<WorkerData | undefined>();
     
     const { toast } = useToast();
     const firestore = useFirestore();
@@ -73,6 +80,14 @@ export default function ScanPage() {
             if (userSnap.exists()) {
                 const user = { id: userSnap.id, ...userSnap.data() } as UserType;
                 setScannedUser(user);
+                
+                // Fetch job title
+                if (user.idNumber) {
+                    const workerInfo = await serverFetchWorkerData({ workerId: user.idNumber });
+                    if (workerInfo) {
+                       setWorkerData({ jobTitle: workerInfo.jobTitle });
+                    }
+                }
 
                 // 1. Check for approved and valid access request
                 const today = new Date();
@@ -84,6 +99,7 @@ export default function ScanPage() {
                     where("status", "==", "Approved")
                 );
                 const requestsSnap = await getDocs(requestsQuery);
+                setAccessRequest(null);
 
                 if (requestsSnap.empty) {
                     setAccessStatus('denied-no-request');
@@ -94,10 +110,11 @@ export default function ScanPage() {
                         const validFrom = request.validFrom ? parseISO(request.validFrom) : null;
                         const expiresAt = request.expiresAt ? (request.expiresAt === 'Permanent' ? 'Permanent' : parseISO(request.expiresAt)) : null;
 
-                        if (validFrom && isAfter(today, validFrom) || format(today, 'yyyy-MM-dd') === request.validFrom) {
+                        if (validFrom && (isAfter(today, validFrom) || format(today, 'yyyy-MM-dd') === request.validFrom)) {
                            if (expiresAt === 'Permanent' || (expiresAt instanceof Date && (isBefore(today, expiresAt) || format(today, 'yyyy-MM-dd') === request.expiresAt))) {
                                 isValidRequestFound = true;
                                 setAccessStatus('approved');
+                                setAccessRequest({ ...request, id: requestDoc.id});
                                 break;
                            } else if (expiresAt instanceof Date) {
                                 setAccessStatus('denied-expired');
@@ -146,7 +163,7 @@ export default function ScanPage() {
 
             } else {
                 toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${userId}" not found.`});
-                setDialogState('no-user');
+                setIsScannerPaused(false); // Resume scanner if user not found
             }
         } catch (e) {
              console.error(e);
@@ -163,6 +180,8 @@ export default function ScanPage() {
         setLastActivity(null);
         setCertificateStatus({ missing: [], expired: [] });
         setIsScannerPaused(false);
+        setAccessRequest(null);
+        setWorkerData(undefined);
     }
     
     if (authLoading) {
@@ -223,6 +242,8 @@ export default function ScanPage() {
                         certificateStatus={certificateStatus}
                         lastActivity={lastActivity}
                         assignedSite={assignedSite!}
+                        accessRequest={accessRequest}
+                        workerData={workerData}
                         onClose={handleCloseDialog}
                     />
                  )}

@@ -17,7 +17,6 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User, Site, UserStatus, Contractor, Operator } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +31,7 @@ import {
   Pencil,
   Briefcase,
   Download,
+  User as UserIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -73,7 +73,7 @@ interface UsersTableProps {
   onUpdateUser: (
     userId: string,
     originalUser: User,
-    updatedData: Omit<User, "id" | "avatarUrl">
+    updatedData: Omit<User, "id">
   ) => Promise<boolean>;
   currentUser: User;
 }
@@ -151,6 +151,10 @@ export function UsersTable({
     Inactive: "bg-yellow-100 text-yellow-800",
   };
 
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  }
+
   return (
     <>
       <Card>
@@ -203,15 +207,9 @@ export function UsersTable({
                         <TableRow key={user.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9">
-                                <AvatarImage
-                                  src={user.avatarUrl}
-                                  alt={user.name}
-                                />
-                                <AvatarFallback>
-                                  {user.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
+                                {getInitials(user.name)}
+                              </div>
                               <div className="font-medium whitespace-nowrap">
                                 {user.name}
                               </div>

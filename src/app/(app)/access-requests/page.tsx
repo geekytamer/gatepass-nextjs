@@ -6,7 +6,7 @@ import { collection, onSnapshot, query, where, updateDoc, doc, getDocs } from "f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequestsTable } from "@/components/access-requests/requests-table";
 import { SupervisorRequestForm } from "@/components/access-requests/supervisor-request-form";
-import type { AccessRequest, Site, Operator, Contractor } from "@/lib/types";
+import type { AccessRequest, Site, Operator, Contractor, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { useFirestore } from "@/firebase";
@@ -23,6 +23,7 @@ export default function AccessRequestsPage() {
 
   const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -40,7 +41,7 @@ export default function AccessRequestsPage() {
 
 
   useEffect(() => {
-    if (!firestore || !currentUserId || !firestoreUser?.role) return;
+    if (!firestore || !currentUserId || !firestoreUser) return;
     setLoading(true);
 
     const unsubs: (()=>void)[] = [];
@@ -54,16 +55,18 @@ export default function AccessRequestsPage() {
     } else if (isSupervisor) {
       // Supervisors see requests they have submitted
        userRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
-    } else {
-       // Admins/Managers see all requests for a consolidated view if needed, or customize as required
-       userRequestsQuery = query(requestsCollection);
+    } else if (isManager) {
+      // Admins/Managers see all requests for a consolidated view if needed, or customize as required
+      userRequestsQuery = query(requestsCollection);
     }
     
-    unsubs.push(onSnapshot(userRequestsQuery, (snapshot) => {
-        const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
-        setMyRequests(userRequests);
-        if (!isManager) setLoading(false);
-    }, () => setLoading(false)));
+    if (userRequestsQuery) {
+        unsubs.push(onSnapshot(userRequestsQuery, (snapshot) => {
+            const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+            setMyRequests(userRequests);
+            if (!isManager) setLoading(false);
+        }, () => setLoading(false)));
+    }
 
 
     // Listener for manager's pending approvals
@@ -98,7 +101,8 @@ export default function AccessRequestsPage() {
         setupPendingRequestsListener();
     }
     
-    // Data fetching for forms
+    // Data fetching for forms and tables
+    unsubs.push(onSnapshot(collection(firestore, "users"), (snap) => setAllUsers(snap.docs.map(d => ({...d.data(), id: d.id } as User)))));
     unsubs.push(onSnapshot(collection(firestore, "sites"), (snap) => setSites(snap.docs.map(d => ({...d.data(), id: d.id } as Site)))));
     unsubs.push(onSnapshot(collection(firestore, "operators"), (snap) => setOperators(snap.docs.map(d => ({...d.data(), id: d.id } as Operator)))));
     unsubs.push(onSnapshot(collection(firestore, "contractors"), (snap) => setContractors(snap.docs.map(d => ({...d.data(), id: d.id } as Contractor)))));
@@ -154,8 +158,8 @@ export default function AccessRequestsPage() {
   const getVisibleTabs = () => {
     const tabs = [];
     
-    if (isSupervisor || isWorker) {
-        tabs.push({ value: "my-requests-log", label: "My Requests Log" });
+    if (isSupervisor || isWorker || isManager) {
+        tabs.push({ value: "my-requests-log", label: "Requests Log" });
     }
 
     if (isSupervisor) {
@@ -180,9 +184,9 @@ export default function AccessRequestsPage() {
           {visibleTabs.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
         </TabsList>
         
-        {(isSupervisor || isWorker) && (
+        {(isSupervisor || isWorker || isManager) && (
             <TabsContent value="my-requests-log">
-                <RequestsTable title="My Requests Log" description="A log of access requests relevant to you." requests={myRequests} isLoading={loading} />
+                <RequestsTable title="Requests Log" description="A log of all access requests relevant to you." requests={myRequests} isLoading={loading} allUsers={allUsers} />
             </TabsContent>
         )}
 
@@ -200,7 +204,7 @@ export default function AccessRequestsPage() {
 
         {isManager && (
             <TabsContent value="approve">
-                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onApprove={handleOpenApprovalDialog} onDeny={handleDenyRequest} isLoading={loading} />
+                <RequestsTable title="Pending Approval" description="These requests are waiting for your approval." requests={pendingRequests} showActions={true} onApprove={handleOpenApprovalDialog} onDeny={handleDenyRequest} isLoading={loading} allUsers={allUsers} />
             </TabsContent>
         )}
       </Tabs>

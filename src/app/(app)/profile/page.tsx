@@ -11,7 +11,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, AlertTriangle, KeyRound } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, KeyRound, User as UserIcon } from 'lucide-react';
 import { format, isBefore, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
@@ -80,6 +80,10 @@ export default function ProfilePage() {
         if (!expiryDate) return false;
         return isBefore(parseISO(expiryDate), new Date());
     };
+    
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    }
 
     if (loading) {
         return <ProfileSkeleton />;
@@ -117,10 +121,9 @@ export default function ProfilePage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-1 flex flex-col items-center justify-center p-6 md:p-8 text-center">
-            <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <div className="h-24 w-24 mb-4 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold text-4xl">
+              {getInitials(user.name)}
+            </div>
             <h2 className="text-2xl font-semibold">{user.name}</h2>
             <p className="text-muted-foreground">{user.email}</p>
             <Badge className="mt-4" variant="default">{user.role}</Badge>
@@ -176,3 +179,4 @@ export default function ProfilePage() {
     
 
     
+

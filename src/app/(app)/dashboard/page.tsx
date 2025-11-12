@@ -6,7 +6,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 
 export default function DashboardPage() {
-    const { loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Visitor', 'Supervisor']);
+    const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Security', 'Worker', 'Visitor', 'Supervisor']);
     
     if (loading) {
         return <div>Loading...</div>;
@@ -15,6 +15,19 @@ export default function DashboardPage() {
     if (!isAuthorized) {
         return <UnauthorizedComponent />;
     }
+
+  const showDashboard = firestoreUser && ['Admin', 'Operator Admin', 'Manager', 'Security', 'Supervisor'].includes(firestoreUser.role);
+
+  if (!showDashboard) {
+      return (
+         <div className="space-y-4 md:space-y-6">
+            <header>
+                <h1 className="text-3xl font-bold tracking-tight">Welcome</h1>
+                <p className="text-muted-foreground">Your role does not have a dashboard view.</p>
+            </header>
+         </div>
+      );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">

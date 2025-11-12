@@ -8,6 +8,15 @@ import { Users, Hourglass, LogIn, Building } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User, AccessRequest, GateActivity, Site } from '@/lib/types';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
+
+
+const chartConfig = {
+  count: {
+    label: "Personnel",
+  },
+} satisfies ChartConfig;
 
 
 export function StatsCards() {
@@ -19,6 +28,7 @@ export function StatsCards() {
         checkedIn: 0,
         totalVisitors: 0,
     });
+    const [onSiteByCompany, setOnSiteByCompany] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -33,93 +43,98 @@ export function StatsCards() {
         const isManager = role === 'Manager';
 
 
-        if (canViewAllStats) {
-            const usersUnsub = onSnapshot(collection(firestore, 'users'), (snapshot) => {
+        const setupListeners = async (siteIds?: string[]) => {
+          // Total Users & Visitors
+          if (canViewAllStats) {
+            unsubs.push(onSnapshot(collection(firestore, 'users'), (snapshot) => {
                 const users = snapshot.docs.map(doc => doc.data() as User);
                 setStats(prev => ({
                     ...prev,
                     totalUsers: users.length,
                     totalVisitors: users.filter(u => u.role === 'Visitor' || u.role === 'Worker').length
                 }));
-                 if (loading) setLoading(false);
-            });
-            unsubs.push(usersUnsub);
+            }));
+          }
 
-            const requestsUnsub = onSnapshot(query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending')), (snapshot) => {
-                setStats(prev => ({
-                    ...prev,
-                    pendingRequests: snapshot.size
-                }));
-            });
-            unsubs.push(requestsUnsub);
+          // Pending Requests
+          let requestsQuery = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
+          if (siteIds) {
+            requestsQuery = query(requestsQuery, where('siteId', 'in', siteIds));
+          }
+          unsubs.push(onSnapshot(requestsQuery, (snapshot) => {
+              setStats(prev => ({ ...prev, pendingRequests: snapshot.size }));
+          }));
 
-            const activityUnsub = onSnapshot(collection(firestore, 'gateActivity'), (snapshot) => {
-                 const activity = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
-                 const checkedInCount = calculateCheckedIn(activity);
-                 setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
-            });
-            unsubs.push(activityUnsub);
+          // Checked-in count and by-company breakdown
+          let activityQuery = collection(firestore, 'gateActivity');
+          if (siteIds) {
+            activityQuery = query(activityQuery, where('siteId', 'in', siteIds));
+          }
+          unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
+            onSnapshot(collection(firestore, 'users'), (usersSnap) => {
+                const activities = activitySnap.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
+                const users = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
+                const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users);
+                
+                setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
+                setOnSiteByCompany(onSiteByCompanyData);
+                setLoading(false);
+            })
+          }));
         }
+
 
         if (isManager) {
              const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
-             const sitesUnsub = onSnapshot(sitesQuery, (sitesSnapshot) => {
+             unsubs.push(onSnapshot(sitesQuery, (sitesSnapshot) => {
                 const managerSiteIds = sitesSnapshot.docs.map(doc => doc.id);
                 if (managerSiteIds.length > 0) {
-                    // Pending requests for manager's sites
-                    const requestsQuery = query(collection(firestore, 'accessRequests'), where('siteId', 'in', managerSiteIds), where('status', '==', 'Pending'));
-                    const reqUnsub = onSnapshot(requestsQuery, (reqSnapshot) => {
-                         setStats(prev => ({ ...prev, pendingRequests: reqSnapshot.size }));
-                    });
-                    unsubs.push(reqUnsub);
-                    
-                    // Checked-in count for manager's sites
-                    const activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', managerSiteIds));
-                    const actUnsub = onSnapshot(activityQuery, (actSnapshot) => {
-                        const activity = actSnapshot.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
-                        const checkedInCount = calculateCheckedIn(activity);
-                        setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
-                    });
-                    unsubs.push(actUnsub);
-
+                  setupListeners(managerSiteIds);
                 } else {
-                    setStats(prev => ({...prev, pendingRequests: 0, checkedIn: 0}));
+                  setLoading(false);
                 }
-                if (loading) setLoading(false);
-             });
-             unsubs.push(sitesUnsub);
-        }
-
-        if (!canViewAllStats && !isManager) {
+             }));
+        } else if (canViewAllStats) {
+          setupListeners();
+        } else {
             setLoading(false);
         }
         
         return () => unsubs.forEach(unsub => unsub());
 
     }, [firestore, firestoreUser?.id, firestoreUser?.role]);
+    
+    function processActivity(activities: GateActivity[], users: User[]) {
+        const userMap = new Map(users.map(u => [u.id, u]));
 
-    function calculateCheckedIn(activity: GateActivity[]) {
-        const checkIns = activity.filter(a => a.type === 'Check-in').reduce((acc, curr) => {
-            if (!acc[curr.userId] || new Date(curr.timestamp) > new Date(acc[curr.userId].timestamp)) {
-            acc[curr.userId] = curr;
+        const latestActivity: Record<string, any> = {};
+        activities.forEach(activity => {
+            if (!latestActivity[activity.userId] || new Date(activity.timestamp) > new Date(latestActivity[activity.userId].timestamp)) {
+                latestActivity[activity.userId] = activity;
             }
+        });
+
+        const onSiteUsers: User[] = [];
+        Object.values(latestActivity).forEach(activity => {
+            if (activity.type === 'Check-in') {
+                const user = userMap.get(activity.userId);
+                if (user) {
+                    onSiteUsers.push(user);
+                }
+            }
+        });
+        
+        const checkedInCount = onSiteUsers.length;
+
+        const companyCounts = onSiteUsers.reduce((acc, user) => {
+            const companyName = user.company || 'Unknown';
+            acc[companyName] = (acc[companyName] || 0) + 1;
             return acc;
-        }, {} as Record<string, any>);
+        }, {} as Record<string, number>);
 
-        const checkOuts = activity.filter(a => a.type === 'Check-out').reduce((acc, curr) => {
-            if (!acc[curr.userId] || new Date(curr.timestamp) > new Date(acc[curr.userId].timestamp)) {
-            acc[curr.userId] = curr;
-            }
-            return acc;
-        }, {} as Record<string, any>);
+        const onSiteByCompanyData = Object.entries(companyCounts).map(([name, count]) => ({ name, count }));
 
-        let checkedInCount = 0;
-        for (const userId in checkIns) {
-            if (!checkOuts[userId] || new Date(checkIns[userId].timestamp) > new Date(checkOuts[userId].timestamp)) {
-            checkedInCount++;
-            }
-        }
-        return checkedInCount;
+        return { checkedInCount, onSiteByCompanyData };
     }
 
 
@@ -146,9 +161,9 @@ export function StatsCards() {
       return null;
   }
 
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {(firestoreUser.role === 'Admin' || firestoreUser.role === 'Operator Admin') && (
+  const renderCards = () => (
+      <>
+       {(firestoreUser.role === 'Admin' || firestoreUser.role === 'Operator Admin') && (
         <>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -192,6 +207,39 @@ export function StatsCards() {
            <p className="text-xs text-muted-foreground">
             {firestoreUser.role === 'Manager' ? "Personnel on your sites" : "Personnel on-site now"}
           </p>
+        </CardContent>
+      </Card>
+      </>
+  )
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
+        {renderCards()}
+      </div>
+      <Card>
+        <CardHeader>
+            <CardTitle>On-Site Personnel by Company</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+                <BarChart layout="vertical" data={onSiteByCompany} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid horizontal={false} />
+                    <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} />
+                    <XAxis type="number" hide />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-chart-1)" radius={4}>
+                         {onSiteByCompany.map((entry, index) => (
+                            <RechartsPrimitive.Label
+                                key={`label-${index}`}
+                                content={({ x, y, width, height, value }) => 
+                                <text x={x! + width! + 5} y={y! + height!/2} dy={4} className="fill-foreground text-sm font-medium">{value}</text>
+                                }
+                            />
+                        ))}
+                    </Bar>
+                </BarChart>
+            </ChartContainer>
         </CardContent>
       </Card>
     </div>

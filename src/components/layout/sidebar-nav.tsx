@@ -23,6 +23,7 @@ import {
   FileBadge,
   LogOut,
   Briefcase,
+  User as UserIcon,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth, useFirestore } from '@/firebase';
@@ -70,14 +71,14 @@ export function SidebarNav() {
     if (!role) return [];
 
     const allItems = [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Supervisor'] },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Operator Admin', 'Manager', 'Security', 'Supervisor'] },
       { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
       { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['Admin'] },
       { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin', 'Operator Admin'] },
       { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin', 'Operator Admin'] },
       { href: '/users', label: 'Personnel', icon: Users, roles: ['Admin', 'Operator Admin', 'Contractor Admin'] },
       { href: '/scan', label: 'Scan', icon: ScanLine, roles: ['Security'] },
-      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Contractor Admin'] },
+      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin'] },
     ];
 
     return allItems.filter(item => item.roles.includes(role));
@@ -132,10 +133,9 @@ export function SidebarNav() {
       <SidebarFooter className="p-2 flex-col gap-2">
         <Separator className="bg-sidebar-border/50 my-2" />
         <div className="flex items-center gap-3 p-2">
-          <Avatar className="h-10 w-10">
-            {firestoreUser && <AvatarImage src={firestoreUser.avatarUrl} alt={firestoreUser.name} />}
-            <AvatarFallback>{firestoreUser ? getInitials(firestoreUser.name) : '...'}</AvatarFallback>
-          </Avatar>
+           <div className="h-10 w-10 flex items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground font-semibold">
+              {firestoreUser ? getInitials(firestoreUser.name) : <UserIcon />}
+           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="font-semibold text-sm text-sidebar-foreground">{firestoreUser?.name || 'Loading...'}</span>
             <span className="text-xs text-sidebar-foreground/70">{firestoreUser?.email || ''}</span>

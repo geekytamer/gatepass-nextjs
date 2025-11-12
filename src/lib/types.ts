@@ -15,7 +15,6 @@ export type User = {
   email?: string;
   role: UserRole;
   status?: UserStatus;
-  avatarUrl: string;
   company?: string; 
   operatorId?: string;
   contractorId?: string;
@@ -50,7 +49,6 @@ export type GateActivity = {
   id: string;
   userId: string;
   userName:string;
-  userAvatar: string;
   timestamp: string; // Should be ISO string
   type: 'Check-in' | 'Check-out';
   gate: string;

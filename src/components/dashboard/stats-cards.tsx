@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs, Query } from 'firebase/firestore';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Users, Hourglass, LogIn, Building, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User, AccessRequest, GateActivity, Site } from '@/lib/types';

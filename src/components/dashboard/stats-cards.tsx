@@ -4,21 +4,13 @@ import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Users, Hourglass, LogIn, Building } from 'lucide-react';
+import { Users, Hourglass, LogIn, Building, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User, AccessRequest, GateActivity, Site } from '@/lib/types';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import * as RechartsPrimitive from 'recharts';
-
-
-const chartConfig = {
-  count: {
-    label: "Personnel",
-  },
-} satisfies ChartConfig;
-
 
 export function StatsCards() {
     const { firestoreUser, loading: authLoading } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Supervisor']);
@@ -28,8 +20,10 @@ export function StatsCards() {
         pendingRequests: 0,
         checkedIn: 0,
         totalVisitors: 0,
+        totalSites: 0,
     });
     const [onSiteByCompany, setOnSiteByCompany] = useState<any[]>([]);
+    const [chartConfig, setChartConfig] = useState<ChartConfig>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -55,6 +49,9 @@ export function StatsCards() {
                     totalVisitors: users.filter(u => u.role === 'Visitor' || u.role === 'Worker').length
                 }));
             }));
+             unsubs.push(onSnapshot(collection(firestore, 'sites'), (snapshot) => {
+                setStats(prev => ({ ...prev, totalSites: snapshot.size }));
+            }));
           }
 
           // Pending Requests
@@ -67,16 +64,30 @@ export function StatsCards() {
           }));
 
           // Checked-in count and by-company breakdown
-          let activityQuery = collection(firestore, 'gateActivity');
+          let activityQuery;
           if (siteIds) {
-            activityQuery = query(activityQuery, where('siteId', 'in', siteIds));
+              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', siteIds));
+          } else {
+              activityQuery = collection(firestore, 'gateActivity');
           }
+
           unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
             onSnapshot(collection(firestore, 'users'), (usersSnap) => {
                 const activities = activitySnap.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
                 const users = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
                 const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users);
                 
+                const newChartConfig: ChartConfig = {};
+                const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+
+                onSiteByCompanyData.forEach((item, index) => {
+                    newChartConfig[item.name] = {
+                        label: item.name,
+                        color: colors[index % colors.length],
+                    };
+                });
+                
+                setChartConfig(newChartConfig);
                 setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
                 setOnSiteByCompany(onSiteByCompanyData);
                 setLoading(false);
@@ -168,12 +179,12 @@ export function StatsCards() {
         <>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Sites</CardTitle>
+                <Building2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                <p className="text-xs text-muted-foreground">All roles included</p>
+                <div className="text-2xl font-bold">{stats.totalSites}</div>
+                <p className="text-xs text-muted-foreground">All operational sites</p>
                 </CardContent>
             </Card>
             <Card>
@@ -229,7 +240,10 @@ export function StatsCards() {
                     <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} />
                     <XAxis type="number" hide />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" fill="var(--color-chart-1)" radius={4}>
+                    <Bar dataKey="count" radius={4}>
+                         {onSiteByCompany.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={chartConfig[entry.name]?.color || 'hsl(var(--chart-1))'} />
+                         ))}
                          {onSiteByCompany.map((entry, index) => (
                             <RechartsPrimitive.Label
                                 key={`label-${index}`}

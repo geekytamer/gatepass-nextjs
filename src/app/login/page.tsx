@@ -4,47 +4,59 @@
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useFirebaseApp } from '@/firebase';
+import { useFirebaseApp, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { doc, getDoc } from 'firebase/firestore';
+import type { User as UserType, UserRole } from '@/lib/types';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
+const getHomepageForRole = (role?: UserRole): string => {
+  switch (role) {
+    case 'Contractor Admin':
+      return '/access-requests';
+    default:
+      return '/dashboard';
+  }
+}
+
 export default function LoginPage() {
     const router = useRouter();
     const app = useFirebaseApp();
+    const firestore = useFirestore();
     const { toast } = useToast();
     const { user, loading } = useUser();
+    const [isRedirecting, setIsRedirecting] = useState(false);
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            email: '',
-            password: '',
-        },
-    });
-
-    // If user is already logged in, redirect to dashboard
+    // If user is already logged in, redirect them based on role
     useEffect(() => {
-        if (!loading && user) {
-            router.push('/dashboard');
+        if (!loading && user && firestore) {
+            setIsRedirecting(true);
+            const userDocRef = doc(firestore, 'users', user.uid);
+            getDoc(userDocRef).then(docSnap => {
+                const homePage = getHomepageForRole(docSnap.data()?.role);
+                router.push(homePage);
+            }).catch(() => {
+                router.push('/dashboard'); // fallback
+            });
         }
-    }, [user, loading, router]);
+    }, [user, loading, firestore, router]);
 
 
     const handleSignIn = async (values: z.infer<typeof formSchema>) => {
-        if (!app) {
+        if (!app || !firestore) {
             console.error("Firebase app not initialized");
             toast({ variant: "destructive", title: "Error", description: "Firebase is not configured." });
             return;
@@ -52,8 +64,14 @@ export default function LoginPage() {
 
         const auth = getAuth(app);
         try {
-            await signInWithEmailAndPassword(auth, values.email, values.password);
-            router.push('/dashboard');
+            const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+            
+            // On successful sign-in, fetch user role to determine redirect
+            const userDocRef = doc(firestore, 'users', userCredential.user.uid);
+            const docSnap = await getDoc(userDocRef);
+            const homePage = getHomepageForRole(docSnap.data()?.role);
+            
+            router.push(homePage);
             toast({ title: "Login Successful", description: "Welcome back!" });
         } catch (error) {
             console.error("Authentication Error", error);
@@ -61,7 +79,7 @@ export default function LoginPage() {
         }
     };
     
-    if(loading || user) {
+    if(loading || isRedirecting) {
         // Show a simple loading state or a blank screen while redirecting
         return <div className="h-svh w-full bg-background" />;
     }

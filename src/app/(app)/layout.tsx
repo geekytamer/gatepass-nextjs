@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirestore } from '@/firebase';
 import { doc, onSnapshot, setDoc, getDocs, collection, query, limit, getDoc } from 'firebase/firestore';
-import type { User } from '@/lib/types';
+import type { User, UserRole } from '@/lib/types';
 
 
 function AppLoadingSkeleton() {
@@ -42,6 +42,15 @@ function AppLoadingSkeleton() {
       </div>
     </div>
   )
+}
+
+const getHomepageForRole = (role?: UserRole): string => {
+  switch (role) {
+    case 'Contractor Admin':
+      return '/access-requests';
+    default:
+      return '/dashboard';
+  }
 }
 
 
@@ -103,11 +112,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             const userData = doc.data() as User;
             setFirestoreUser(userData);
             setUserStatusLoading(false);
+            
+            const homePage = getHomepageForRole(userData.role);
+
             // Redirection logic based on status
             if (userData.status === 'Inactive' && pathname !== '/activate-account') {
                 router.push('/activate-account');
             } else if (userData.status === 'Active' && pathname === '/activate-account') {
-                router.push('/dashboard');
+                router.push(homePage);
             }
         }, (error) => {
             console.error("Error fetching user profile:", error);

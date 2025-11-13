@@ -110,7 +110,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                     return dateB - dateA;
                 }).map((request) => (
                   <Collapsible asChild key={request.id} open={openRequestId === request.id} onOpenChange={() => setOpenRequestId(prev => prev === request.id ? null : request.id)}>
-                    <>
+                    <React.Fragment>
                       <TableRow className="cursor-pointer">
                         <TableCell>
                           <CollapsibleTrigger asChild>
@@ -197,7 +197,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                           </TableCell>
                         </TableRow>
                       </CollapsibleContent>
-                    </>
+                    </React.Fragment>
                   </Collapsible>
                 ))
               ) : (

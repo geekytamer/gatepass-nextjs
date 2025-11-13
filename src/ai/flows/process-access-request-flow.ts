@@ -10,6 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
+import { initializeApp } from 'firebase-admin/app';
 import { sendVisitorWelcomeEmail } from './send-visitor-welcome-email-flow';
 import { getFirestore } from 'firebase-admin/firestore';
 import { User, Certificate } from '@/lib/types';
@@ -48,6 +49,50 @@ const ProcessAccessRequestOutputSchema = z.object({
 export type ProcessAccessRequestOutput = z.infer<typeof ProcessAccessRequestOutputSchema>;
 
 
+function initializeFirebaseAdmin() {
+  if (admin.apps.length === 0) {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Option 1: JSON string env
+        const serviceAccount = JSON.parse(
+          process.env.FIREBASE_SERVICE_ACCOUNT as string
+        );
+        initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+      } else if (
+        process.env.FIREBASE_PROJECT_ID &&
+        process.env.FIREBASE_CLIENT_EMAIL &&
+        process.env.FIREBASE_PRIVATE_KEY
+      ) {
+        if (
+          !process.env.FIREBASE_PROJECT_ID ||
+          !process.env.FIREBASE_CLIENT_EMAIL ||
+          !process.env.FIREBASE_PRIVATE_KEY
+        ) {
+          throw new Error("Missing Firebase Admin env vars");
+        }
+  
+        if (!process.env.FIREBASE_PRIVATE_KEY.includes("BEGIN PRIVATE KEY")) {
+          throw new Error(
+            "FIREBASE_PRIVATE_KEY is present but formatted incorrectly (missing BEGIN PRIVATE KEY)"
+          );
+        }
+  
+        // Option 2: Split env vars
+        initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          }),
+        });
+      } else {
+        // Option 3: Google Cloud environment
+        initializeApp();
+      }
+    }
+}
+
 export async function processAccessRequest(input: ProcessAccessRequestInput): Promise<ProcessAccessRequestOutput> {
   return processAccessRequestFlow(input);
 }
@@ -61,9 +106,7 @@ const processAccessRequestFlow = ai.defineFlow(
   },
   async (input) => {
     
-    if (admin.apps.length === 0) {
-      admin.initializeApp();
-    }
+    initializeFirebaseAdmin();
     const firestore = getFirestore();
 
     const workers = input.workerList;

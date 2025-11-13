@@ -168,7 +168,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                             <div className="p-4 bg-muted/50">
                                 <h4 className="font-semibold mb-2">Personnel in this request:</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {request.workerIds.map(workerId => {
+                                {(request.workerIds || []).map(workerId => {
                                   const worker = allUsers.find(u => u.id === workerId);
                                   if (!worker) return null;
                                   return (

@@ -40,6 +40,14 @@ export default function LoginPage() {
     const { user, loading } = useUser();
     const [isRedirecting, setIsRedirecting] = useState(false);
 
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            email: '',
+            password: '',
+        },
+    });
+
     // If user is already logged in, redirect them based on role
     useEffect(() => {
         if (!loading && user && firestore) {
@@ -69,10 +77,16 @@ export default function LoginPage() {
             // On successful sign-in, fetch user role to determine redirect
             const userDocRef = doc(firestore, 'users', userCredential.user.uid);
             const docSnap = await getDoc(userDocRef);
-            const homePage = getHomepageForRole(docSnap.data()?.role);
             
-            router.push(homePage);
-            toast({ title: "Login Successful", description: "Welcome back!" });
+            if (docSnap.exists() && docSnap.data().status === 'Inactive') {
+                router.push('/activate-account');
+                toast({ title: "Account Inactive", description: "Please set a new password to activate your account." });
+            } else {
+                const homePage = getHomepageForRole(docSnap.data()?.role);
+                router.push(homePage);
+                toast({ title: "Login Successful", description: "Welcome back!" });
+            }
+
         } catch (error) {
             console.error("Authentication Error", error);
              toast({ variant: "destructive", title: "Login Failed", description: "Invalid email or password. Please try again." });

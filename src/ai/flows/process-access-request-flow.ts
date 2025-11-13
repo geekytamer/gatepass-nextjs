@@ -102,6 +102,7 @@ const processAccessRequestFlow = ai.defineFlow(
             const newUserProfile: Partial<User> = {
                 name: workerData.name,
                 email: workerData.email,
+                idNumber: workerData.id, // Save the worker's employee ID
                 company: (await firestore.collection('contractors').doc(input.contractorId).get()).data()?.name,
                 contractorId: input.contractorId,
                 role: 'Worker',

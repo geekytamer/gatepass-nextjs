@@ -155,6 +155,10 @@ export function UsersTable({
     return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   }
 
+  const canEditUser = (user: User) => {
+    return !['Worker', 'Supervisor'].includes(user.role);
+  };
+
   return (
     <>
       <Card>
@@ -255,15 +259,17 @@ export function UsersTable({
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onSelect={() => handleEditClick(user)}
-                                >
-                                  <Pencil className="mr-2 h-4 w-4" /> Edit
-                                </DropdownMenuItem>
+                                {canEditUser(user) && (
+                                  <DropdownMenuItem
+                                    onSelect={() => handleEditClick(user)}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onSelect={() => handleDownloadQr(user)}>
                                   <Download className="mr-2 h-4 w-4" /> Download QR
                                 </DropdownMenuItem>
-                                {user.id !== currentUser.id && (
+                                {canEditUser(user) && user.id !== currentUser.id && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <DropdownMenuItem

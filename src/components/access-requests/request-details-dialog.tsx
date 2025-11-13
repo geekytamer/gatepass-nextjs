@@ -33,6 +33,7 @@ const isCertificateExpired = (expiryDate?: string) => {
 
 const WorkerDetails = ({ worker, site }: { worker: User, site: { requiredCertificates: string[] }}) => {
     const { workerData, loading } = useWorkerData(worker.idNumber);
+    console.log(worker);
     const requiredCerts = site.requiredCertificates || [];
 
     const getCertificateStatus = (certName: string) => {

@@ -47,8 +47,8 @@ export default function DashboardPage() {
 
         const setupActivityListener = async () => {
             let activityQuery;
-            if (siteId !== 'all') {
-                activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', siteId));
+            if (selectedSiteId !== 'all') {
+                activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
             } else if (firestoreUser.role === 'Manager') {
                 // If manager selects "all", fetch for their managed sites
                 const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
@@ -74,7 +74,7 @@ export default function DashboardPage() {
         setupActivityListener();
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, canFilterBySite, siteId]);
+    }, [firestore, firestoreUser, canFilterBySite, selectedSiteId]);
     
     if (loading) {
         return <div>Loading...</div>;

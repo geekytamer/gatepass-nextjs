@@ -73,9 +73,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
   const colSpan = showActions ? 6 : 5;
 
   const handleRowClick = (request: AccessRequest) => {
-    if (!showActions) { // Only allow viewing details on non-actionable tables
-      setSelectedRequest(request);
-    }
+    setSelectedRequest(request);
   };
 
   return (
@@ -111,7 +109,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                     const dateB = b.requestedAt && typeof b.requestedAt !== 'string' ? b.requestedAt.toDate().getTime() : 0;
                     return dateB - dateA;
                 }).map((request) => (
-                  <TableRow key={request.id} onClick={() => handleRowClick(request)} className={!showActions ? "cursor-pointer" : ""}>
+                  <TableRow key={request.id} onClick={() => handleRowClick(request)} className="cursor-pointer">
                     <TableCell>
                       <div>
                           <div className="font-medium">{request.siteName}</div>
@@ -119,7 +117,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                           <Users className="h-4 w-4" /> 
-                          <span>{request.workerIds?.length || 0} Workers</span>
+                          <span>{(request.workerIds || []).length} Workers</span>
                       </div>
                     </TableCell>
                     <TableCell>

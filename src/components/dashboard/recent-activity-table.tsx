@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
+import type { Timestamp } from 'firebase/firestore';
 
 interface RecentActivityTableProps {
   activity: GateActivity[];
@@ -36,12 +37,20 @@ export function RecentActivityTable({ activity, users, isLoading = false }: Rece
   }
 
   const getInitials = (name: string) => {
+    if (!name) return '';
     return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   }
 
+  const toDate = (timestamp: string | Timestamp): Date => {
+    if (typeof timestamp === 'object' && timestamp.toDate) {
+      return timestamp.toDate();
+    }
+    return new Date(timestamp);
+  }
+
   const sortedActivity = activity.sort((a,b) => {
-    const timeA = new Date(a.timestamp).getTime();
-    const timeB = new Date(b.timestamp).getTime();
+    const timeA = toDate(a.timestamp).getTime();
+    const timeB = toDate(b.timestamp).getTime();
     return timeB - timeA;
   }).slice(0, 10); // Get latest 10 activities
 
@@ -65,39 +74,42 @@ export function RecentActivityTable({ activity, users, isLoading = false }: Rece
               {isLoading ? (
                 <TableRow><TableCell colSpan={3} className="h-56 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : sortedActivity.length > 0 ? (
-                sortedActivity.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                         <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
-                            {getInitials(item.userName)}
-                         </div>
-                         <div>
-                            <div className="font-medium whitespace-nowrap">{item.userName}</div>
-                            <div className="text-sm text-muted-foreground">{getUserCompany(item.userId)}</div>
-                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={item.type === 'Check-in' ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${item.type === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
-                        {item.type === 'Check-in' ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
-                        {item.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      <TooltipProvider>
-                          <Tooltip>
-                              <TooltipTrigger>
-                                  <span className="text-muted-foreground">{formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}</span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>{format(new Date(item.timestamp), 'PPP p')}</p>
-                              </TooltipContent>
-                          </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
-                ))
+                sortedActivity.map((item) => {
+                    const activityDate = toDate(item.timestamp);
+                    return (
+                        <TableRow key={item.id}>
+                            <TableCell>
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
+                                    {getInitials(item.userName)}
+                                </div>
+                                <div>
+                                    <div className="font-medium whitespace-nowrap">{item.userName}</div>
+                                    <div className="text-sm text-muted-foreground">{getUserCompany(item.userId)}</div>
+                                </div>
+                            </div>
+                            </TableCell>
+                            <TableCell>
+                            <Badge variant={item.type === 'Check-in' ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${item.type === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
+                                {item.type === 'Check-in' ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
+                                {item.type}
+                            </Badge>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <span className="text-muted-foreground">{formatDistanceToNow(activityDate, { addSuffix: true })}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{format(activityDate, 'PPP p')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })
               ) : (
                 <TableRow><TableCell colSpan={3} className="h-56 text-center">No recent activity found.</TableCell></TableRow>
               )}

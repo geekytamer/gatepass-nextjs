@@ -14,10 +14,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AccessRequest, User } from "@/lib/types";
+import type { AccessRequest, User, Certificate as CertificateType, Site } from "@/lib/types";
 import { format, isBefore, parseISO } from 'date-fns';
-import { Briefcase, Building, Calendar, Contact, FileBadge, Hash, ShieldAlert, User as UserIcon, Users } from "lucide-react";
+import { Briefcase, Building, Calendar, Contact, FileBadge, Hash, ShieldAlert, ShieldCheck, User as UserIcon, Users } from "lucide-react";
 import { useWorkerData } from "@/hooks/use-worker-data";
+import { useFirestore } from "@/firebase";
+import { useEffect, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;
@@ -31,40 +34,57 @@ const isCertificateExpired = (expiryDate?: string) => {
     return isBefore(parseISO(expiryDate), new Date());
 };
 
-const WorkerDetails = ({ worker, site }: { worker: User, site: { requiredCertificates: string[] }}) => {
+const WorkerDetails = ({ worker, site }: { worker: User, site: Site | null}) => {
     const { workerData, loading } = useWorkerData(worker.idNumber);
-    console.log(worker);
-    const requiredCerts = site.requiredCertificates || [];
+    const requiredCerts = site?.requiredCertificates || [];
 
-    const getCertificateStatus = (certName: string) => {
-        const userCert = worker.certificates?.find(c => c.name === certName);
-        if (!userCert) return { status: 'Missing', cert: null };
-        if (isCertificateExpired(userCert.expiryDate)) return { status: 'Expired', cert: userCert };
-        return { status: 'Valid', cert: userCert };
-    };
+    const userCerts = worker.certificates || [];
+    const userCertNames = userCerts.map(c => c.name);
+
+    const missingRequiredCerts = requiredCerts.filter(rc => !userCertNames.includes(rc));
 
     return (
-        <div className="p-3 rounded-md bg-muted/50 border flex flex-col gap-2">
+        <div className="p-3 rounded-md bg-muted/50 border flex flex-col gap-3">
             <div className="font-semibold">{worker.name}</div>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
                 <span>{loading ? 'Loading...' : workerData?.jobTitle || 'N/A'}</span>
             </div>
-            {requiredCerts.length > 0 && (
-                 <div>
-                    {requiredCerts.map(certName => {
-                        const { status } = getCertificateStatus(certName);
-                        const isExpired = status === 'Expired';
-                        const isMissing = status === 'Missing';
+             {userCerts.length > 0 && (
+                 <div className="space-y-2">
+                    {userCerts.map((cert, index) => {
+                        const isExpired = isCertificateExpired(cert.expiryDate);
                         return (
-                            <Badge key={certName} variant={isExpired || isMissing ? "destructive" : "secondary"} className="font-normal mr-1 mb-1">
-                                {isExpired || isMissing ? <ShieldAlert className="h-3 w-3 mr-1.5" /> : <FileBadge className="h-3 w-3 mr-1.5" />}
-                                {certName} {isExpired ? '(Expired)' : ''} {isMissing ? '(Missing)' : ''}
-                            </Badge>
-                        )
+                            <div key={index} className="flex items-start gap-2 text-sm">
+                                {isExpired ? <ShieldAlert className="h-4 w-4 text-destructive mt-0.5" /> : <ShieldCheck className="h-4 w-4 text-primary mt-0.5" />}
+                                <div>
+                                    <p className="font-medium">{cert.name}</p>
+                                    <p className={cn("text-xs text-muted-foreground", isExpired && "text-destructive font-semibold")}>
+                                        {cert.expiryDate ? `Expires: ${format(parseISO(cert.expiryDate), 'PPP')}` : 'No expiry'}
+                                    </p>
+                                </div>
+                            </div>
+                        );
                     })}
                 </div>
             )}
+             {missingRequiredCerts.length > 0 && (
+                <div className="space-y-2">
+                    {missingRequiredCerts.map((certName) => (
+                        <div key={certName} className="flex items-start gap-2 text-sm text-destructive">
+                             <ShieldAlert className="h-4 w-4 mt-0.5" />
+                             <div>
+                                 <p className="font-medium">{certName}</p>
+                                 <p className="text-xs font-semibold">Missing Required Certificate</p>
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+             {userCerts.length === 0 && missingRequiredCerts.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No certificate information available for this worker.</p>
+             )}
         </div>
     );
 };
@@ -72,8 +92,21 @@ const WorkerDetails = ({ worker, site }: { worker: User, site: { requiredCertifi
 
 export function RequestDetailsDialog({ request, allUsers, open, onOpenChange }: RequestDetailsDialogProps) {
 
+  const firestore = useFirestore();
+  const [siteDetails, setSiteDetails] = useState<Site | null>(null);
+
+  useEffect(() => {
+    if (!firestore || !request?.siteId) return;
+    const siteRef = doc(firestore, 'sites', request.siteId);
+    getDoc(siteRef).then(docSnap => {
+        if (docSnap.exists()) {
+            setSiteDetails({id: docSnap.id, ...docSnap.data()} as Site);
+        }
+    })
+  }, [firestore, request?.siteId])
+
   const workersInRequest = request.workerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
-  const siteDetails = { requiredCertificates: [] }; // In a real scenario, you'd fetch site details
+  
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

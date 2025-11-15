@@ -21,6 +21,7 @@ import { useWorkerData } from "@/hooks/use-worker-data";
 import { useFirestore } from "@/firebase";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
+import { cn } from "@/lib/utils";
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;

@@ -57,23 +57,23 @@ const ActivityTableRow = ({ activityItem, allUsers, allSites }: { activityItem: 
                 <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
                     {getInitials(activityItem.userName)}
                 </div>
-                <div>
-                    <div className="font-medium whitespace-nowrap">{activityItem.userName}</div>
-                     <div className="text-sm text-muted-foreground flex items-center gap-1.5">
-                         <Briefcase className="h-3 w-3" />
-                         <span>{workerLoading ? '...' : workerData?.jobTitle || 'N/A'}</span>
-                    </div>
-                </div>
+                <div className="font-medium whitespace-nowrap">{activityItem.userName}</div>
             </div>
             </TableCell>
             <TableCell>
-                <div className="flex flex-col">
-                    <Badge variant={activityItem.type === 'Check-in' ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${activityItem.type === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
-                        {activityItem.type === 'Check-in' ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
-                        {activityItem.type}
-                    </Badge>
-                     <span className="text-xs text-muted-foreground mt-1">{siteName}</span>
+                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <Briefcase className="h-3 w-3" />
+                    <span>{workerLoading ? '...' : workerData?.jobTitle || 'N/A'}</span>
                 </div>
+            </TableCell>
+            <TableCell>
+                <Badge variant={activityItem.type === 'Check-in' ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${activityItem.type === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
+                    {activityItem.type === 'Check-in' ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
+                    {activityItem.type}
+                </Badge>
+            </TableCell>
+             <TableCell>
+                <span className="text-sm text-muted-foreground">{siteName}</span>
             </TableCell>
             <TableCell className="text-right whitespace-nowrap">
             <TooltipProvider>
@@ -119,19 +119,21 @@ export function RecentActivityTable({ activity, users, sites, isLoading = false 
             <TableHeader>
               <TableRow>
                 <TableHead>Personnel</TableHead>
-                <TableHead>Action & Site</TableHead>
+                <TableHead>Job Title</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Site</TableHead>
                 <TableHead className="text-right">Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={3} className="h-56 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-56 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : sortedActivity.length > 0 ? (
                 sortedActivity.map((item) => (
                     <ActivityTableRow key={item.id} activityItem={item} allUsers={users} allSites={sites} />
                 ))
               ) : (
-                <TableRow><TableCell colSpan={3} className="h-56 text-center">No recent activity found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-56 text-center">No recent activity found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

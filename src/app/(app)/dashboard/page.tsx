@@ -127,7 +127,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
                 <div className="lg:col-span-3">
-                    <RecentActivityTable activity={gateActivity} users={users} isLoading={loadingData} />
+                    <RecentActivityTable activity={gateActivity} users={users} sites={sites} isLoading={loadingData} />
                 </div>
                  <div className="lg:col-span-2">
                     <ContractorAccessChart siteId={selectedSiteId} />

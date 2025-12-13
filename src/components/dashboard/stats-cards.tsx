@@ -1,12 +1,12 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs, Query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Users, Hourglass, LogIn, Building, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { User, AccessRequest, GateActivity, Site } from '@/lib/types';
+import type { User, AccessRequest, GateActivity, Site, Operator, Contractor } from '@/lib/types';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
@@ -14,9 +14,10 @@ import * as RechartsPrimitive from 'recharts';
 
 interface StatsCardsProps {
     siteId: string;
+    companyId: string;
 }
 
-export function StatsCards({ siteId }: StatsCardsProps) {
+export function StatsCards({ siteId, companyId }: StatsCardsProps) {
     const { firestoreUser, loading: authLoading } = useAuthProtection(['Admin', 'Operator Admin', 'Manager']);
     const firestore = useFirestore();
     const [stats, setStats] = useState({
@@ -40,87 +41,80 @@ export function StatsCards({ siteId }: StatsCardsProps) {
 
         const isManager = role === 'Manager';
 
-
-        const setupListeners = async (filterSiteIds?: string[]) => {
-          // Global stats - only for admins with 'all sites' selected
-          if (firestoreUser.role !== 'Manager' && siteId === 'all') {
-            unsubs.push(onSnapshot(collection(firestore, 'users'), (snapshot) => {
-                const users = snapshot.docs.map(doc => doc.data() as User);
-                setStats(prev => ({
-                    ...prev,
-                    totalUsers: users.length,
-                    totalVisitors: users.filter(u => u.role === 'Visitor' || u.role === 'Worker').length
-                }));
-            }));
-             unsubs.push(onSnapshot(collection(firestore, 'sites'), (snapshot) => {
-                setStats(prev => ({ ...prev, totalSites: snapshot.size }));
-            }));
+        const setupListeners = async () => {
+          let sitesQuery: Query | null = null;
+          if (siteId !== 'all') {
+            sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
+          } else if (companyId !== 'all') {
+            // Need to know if company is operator to filter sites
+            const companyIsOperator = (await getDocs(query(collection(firestore, 'operators'), where('__name__', '==', companyId)))).size > 0;
+            if (companyIsOperator) {
+              sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', companyId));
+            }
+          } else if (isManager) {
+            sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
+          } else if (firestoreUser.role === 'Operator Admin') {
+            sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
+          } else if (firestoreUser.role === 'Admin') {
+            sitesQuery = collection(firestore, 'sites');
           }
+
+          const filterSiteIds = sitesQuery ? (await getDocs(sitesQuery)).docs.map(d => d.id) : null;
 
           // Pending Requests
           let requestsQuery: Query = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
-          if (siteId !== 'all') {
-            requestsQuery = query(requestsQuery, where('siteId', '==', siteId));
-          } else if (filterSiteIds) {
-            requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
-          }
+          if (filterSiteIds) requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
+          if (companyId !== 'all') requestsQuery = query(requestsQuery, where('contractorId', '==', companyId));
+          
           unsubs.push(onSnapshot(requestsQuery, (snapshot) => {
               setStats(prev => ({ ...prev, pendingRequests: snapshot.size }));
           }));
 
           // Checked-in count and by-company breakdown
-          let activityQuery: Query;
-           if (siteId !== 'all') {
-              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', '==', siteId));
-          } else if (filterSiteIds) {
-              activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', filterSiteIds));
-          } else {
-              activityQuery = collection(firestore, 'gateActivity');
+          let activityQuery: Query | null = collection(firestore, 'gateActivity');
+          if (filterSiteIds && filterSiteIds.length > 0) {
+            activityQuery = query(activityQuery, where('siteId', 'in', filterSiteIds));
+          } else if (filterSiteIds === null && siteId !== 'all') { // a single site was selected that doesn't exist for this user
+            activityQuery = null;
           }
 
-          unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
-            onSnapshot(collection(firestore, 'users'), (usersSnap) => {
-                const activities = activitySnap.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
-                const users = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
-                const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users);
-                
-                const newChartConfig: ChartConfig = {};
-                const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+          if (activityQuery) {
+            unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
+              onSnapshot(collection(firestore, 'users'), (usersSnap) => {
+                  const activities = activitySnap.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
+                  const users = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
+                  const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users, companyId);
+                  
+                  const newChartConfig: ChartConfig = {};
+                  const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
-                onSiteByCompanyData.forEach((item, index) => {
-                    newChartConfig[item.name] = {
-                        label: item.name,
-                        color: colors[index % colors.length],
-                    };
-                });
-                
-                setChartConfig(newChartConfig);
-                setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
-                setOnSiteByCompany(onSiteByCompanyData);
-                setLoading(false);
-            })
-          }));
-        }
-
-        if (isManager) {
-             const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
-             unsubs.push(onSnapshot(sitesQuery, (sitesSnapshot) => {
-                const managerSiteIds = sitesSnapshot.docs.map(doc => doc.id);
-                if (managerSiteIds.length > 0) {
-                  setupListeners(managerSiteIds);
-                } else {
+                  onSiteByCompanyData.forEach((item, index) => {
+                      newChartConfig[item.name] = {
+                          label: item.name,
+                          color: colors[index % colors.length],
+                      };
+                  });
+                  
+                  setChartConfig(newChartConfig);
+                  setStats(prev => ({ ...prev, checkedIn: checkedInCount }));
+                  setOnSiteByCompany(onSiteByCompanyData);
                   setLoading(false);
-                }
-             }));
-        } else { // Admin or Operator Admin
-          setupListeners();
+              })
+            }));
+          } else {
+             setStats(prev => ({ ...prev, checkedIn: 0 }));
+             setOnSiteByCompany([]);
+             setLoading(false);
+          }
         }
+
+        setupListeners();
         
         return () => unsubs.forEach(unsub => unsub());
 
-    }, [firestore, firestoreUser, siteId]);
+    }, [firestore, firestoreUser, siteId, companyId]);
     
-    function processActivity(activities: GateActivity[], users: User[]) {
+    function processActivity(activities: GateActivity[], users: User[], companyIdFilter: string) {
         const userMap = new Map(users.map(u => [u.id, u]));
 
         const latestActivity: Record<string, any> = {};
@@ -130,7 +124,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
             }
         });
 
-        const onSiteUsers: User[] = [];
+        let onSiteUsers: User[] = [];
         Object.values(latestActivity).forEach(activity => {
             if (activity.type === 'Check-in') {
                 const user = userMap.get(activity.userId);
@@ -139,6 +133,11 @@ export function StatsCards({ siteId }: StatsCardsProps) {
                 }
             }
         });
+
+        // If a company filter is active, further filter the on-site users
+        if (companyIdFilter !== 'all') {
+            onSiteUsers = onSiteUsers.filter(user => user.contractorId === companyIdFilter || user.operatorId === companyIdFilter);
+        }
         
         const checkedInCount = onSiteUsers.length;
 
@@ -177,7 +176,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
       return null;
   }
 
-  const renderGlobalStats = firestoreUser.role !== 'Manager' && siteId === 'all';
+  const renderGlobalStats = firestoreUser.role !== 'Manager' && siteId === 'all' && companyId === 'all';
 
   const renderCards = () => (
       <>
@@ -212,7 +211,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.pendingRequests}</div>
-          <p className="text-xs text-muted-foreground">{siteId === 'all' ? 'Awaiting approval' : 'For this site'}</p>
+          <p className="text-xs text-muted-foreground">Awaiting approval</p>
         </CardContent>
       </Card>
       <Card>
@@ -222,9 +221,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.checkedIn}</div>
-           <p className="text-xs text-muted-foreground">
-            {firestoreUser.role === 'Manager' ? "Personnel on your sites" : "Personnel on-site now"}
-          </p>
+           <p className="text-xs text-muted-foreground">Personnel on-site now</p>
         </CardContent>
       </Card>
       </>
@@ -238,7 +235,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
       <Card>
         <CardHeader>
             <CardTitle>On-Site Personnel by Company</CardTitle>
-            <CardDescription>{siteId === 'all' ? 'Breakdown across all sites.' : 'Breakdown for the selected site.'}</CardDescription>
+            <CardDescription>{siteId === 'all' && companyId === 'all' ? 'Breakdown across all sites.' : 'Breakdown for the selected filter.'}</CardDescription>
         </CardHeader>
         <CardContent>
              {onSiteByCompany.length > 0 ? (
@@ -267,7 +264,7 @@ export function StatsCards({ siteId }: StatsCardsProps) {
                 </ChartContainer>
             ) : (
                 <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                    No personnel currently on-site.
+                    No personnel currently on-site for this selection.
                 </div>
             )}
         </CardContent>

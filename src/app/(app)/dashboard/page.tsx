@@ -33,7 +33,13 @@ export default function DashboardPage() {
 
         // Fetch sites for the filter dropdown
         if (canFilterBySite) {
-            unsubs.push(onSnapshot(collection(firestore, "sites"), (snapshot) => {
+            let sitesQuery;
+            if (firestoreUser.role === 'Operator Admin') {
+                sitesQuery = query(collection(firestore, "sites"), where('operatorId', '==', firestoreUser.operatorId));
+            } else { // Admin
+                sitesQuery = collection(firestore, "sites");
+            }
+            unsubs.push(onSnapshot(sitesQuery, (snapshot) => {
                 const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
                 setSites(sitesData);
             }));
@@ -47,28 +53,38 @@ export default function DashboardPage() {
 
         const setupActivityListener = async () => {
             let activityQuery;
+
             if (selectedSiteId !== 'all') {
                 activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
-            } else if (firestoreUser.role === 'Manager') {
-                // If manager selects "all", fetch for their managed sites
-                const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
-                const sitesSnapshot = await getDocs(sitesQuery);
-                const managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
-                if (managedSiteIds.length > 0) {
-                    activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', managedSiteIds));
-                } else {
-                    setGateActivity([]); // No sites, no activity
-                    return;
-                }
             } else {
-                 activityQuery = collection(firestore, "gateActivity");
+                let siteIdsToFilter: string[] = [];
+                if (firestoreUser.role === 'Manager') {
+                    const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
+                    const sitesSnapshot = await getDocs(sitesQuery);
+                    siteIdsToFilter = sitesSnapshot.docs.map(doc => doc.id);
+                } else if (firestoreUser.role === 'Operator Admin') {
+                    const sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
+                    const sitesSnapshot = await getDocs(sitesQuery);
+                    siteIdsToFilter = sitesSnapshot.docs.map(doc => doc.id);
+                }
+
+                if (siteIdsToFilter.length > 0) {
+                    activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', siteIdsToFilter));
+                } else if (firestoreUser.role === 'Admin') {
+                    activityQuery = collection(firestore, "gateActivity");
+                }
             }
             
-             unsubs.push(onSnapshot(activityQuery, (snapshot) => {
-                const activityData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GateActivity));
-                setGateActivity(activityData);
+            if (activityQuery) {
+                unsubs.push(onSnapshot(activityQuery, (snapshot) => {
+                    const activityData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GateActivity));
+                    setGateActivity(activityData);
+                    setLoadingData(false);
+                }));
+            } else {
+                setGateActivity([]);
                 setLoadingData(false);
-             }));
+            }
         };
 
         setupActivityListener();

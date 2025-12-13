@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SitesTable } from "@/components/sites/sites-table";
 import { NewSiteForm } from "@/components/sites/new-site-form";
@@ -24,7 +24,14 @@ export default function SitesPage() {
     if (!firestore || !firestoreUser) return;
 
     setLoadingData(true);
-    const sitesUnsub = onSnapshot(collection(firestore, "sites"), (snapshot) => {
+    
+    let sitesQuery;
+    if (firestoreUser.role === 'Operator Admin') {
+        sitesQuery = query(collection(firestore, "sites"), where("operatorId", "==", firestoreUser.operatorId));
+    } else { // Admin
+        sitesQuery = collection(firestore, "sites");
+    }
+    const sitesUnsub = onSnapshot(sitesQuery, (snapshot) => {
         const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
         setSites(sitesData);
     });
@@ -41,7 +48,7 @@ export default function SitesPage() {
 
     // Use Promise.all to set loading to false after initial fetches
      const initialFetches = Promise.all([
-        new Promise(resolve => onSnapshot(collection(firestore, "sites"), () => resolve(true), () => resolve(true))),
+        new Promise(resolve => onSnapshot(sitesQuery, () => resolve(true), () => resolve(true))),
         new Promise(resolve => onSnapshot(collection(firestore, "users"), () => resolve(true), () => resolve(true))),
         new Promise(resolve => onSnapshot(collection(firestore, "certificateTypes"), () => resolve(true), () => resolve(true))),
      ]);

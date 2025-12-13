@@ -90,29 +90,20 @@ export default function CompaniesPage() {
           <NewCompanyForm companyType="contractor" onAddCompany={handleAddCompany} />
       </div>
 
-
-      <Tabs defaultValue="operators">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="operators">Operators</TabsTrigger>
-          <TabsTrigger value="contractors">Contractors</TabsTrigger>
-        </TabsList>
-        <TabsContent value="operators">
-            <OperatorsTable
-                operators={operators}
-                users={users}
-                sites={sites}
-                isLoading={loadingData}
-            />
-        </TabsContent>
-        <TabsContent value="contractors">
-            <ContractorsTable
-                contractors={contractors}
-                users={users}
-                accessRequests={requests}
-                isLoading={loadingData}
-            />
-        </TabsContent>
-      </Tabs>
+      <div className="space-y-6">
+        <OperatorsTable
+            operators={operators}
+            users={users}
+            sites={sites}
+            isLoading={loadingData}
+        />
+        <ContractorsTable
+            contractors={contractors}
+            users={users}
+            accessRequests={requests}
+            isLoading={loadingData}
+        />
+      </div>
     </div>
   );
 }

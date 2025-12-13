@@ -36,6 +36,7 @@ const ProcessAccessRequestInputSchema = z.object({
   siteId: z.string(),
   contractNumber: z.string(),
   focalPoint: z.string(),
+  notes: z.string().optional(),
   workerList: z.array(WorkerDataSchema).describe("A list of verified worker objects."),
 });
 export type ProcessAccessRequestInput = z.infer<typeof ProcessAccessRequestInputSchema>;
@@ -181,6 +182,7 @@ const processAccessRequestFlow = ai.defineFlow(
         siteName: siteDoc.data()?.name || 'Unknown Site',
         contractNumber: input.contractNumber,
         focalPoint: input.focalPoint,
+        notes: input.notes,
         workerIds: processedUserIds,
         status: 'Pending',
         requestedAt: admin.firestore.FieldValue.serverTimestamp(),

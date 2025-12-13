@@ -67,35 +67,37 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
     });
 
     async function onSubmit(values: FormValues) {
-        const selectedContractor = contractors.find(c => c.id === values.contractorId);
+        let companyName: string | undefined;
+
+        if (values.role === 'Operator Admin' || values.role === 'Manager') {
+            companyName = operators.find(o => o.id === values.operatorId)?.name;
+        } else if (values.role === 'Contractor Admin' || values.role === 'Supervisor' || values.role === 'Worker') {
+            companyName = contractors.find(c => c.id === values.contractorId)?.name;
+        }
 
         let operatorId = values.operatorId;
         if (currentUserRole === 'Operator Admin') {
             operatorId = currentUserOperatorId;
+            companyName = operators.find(o => o.id === operatorId)?.name;
         }
 
         let contractorId = values.contractorId;
         if (currentUserRole === 'Contractor Admin') {
             contractorId = currentUserContractorId;
+            companyName = contractors.find(c => c.id === contractorId)?.name;
         }
 
         const newUser: Omit<User, 'id' | 'avatarUrl' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'> = {
-            ...values,
-            operatorId,
-            contractorId,
-            company: selectedContractor?.name || '',
-            role: values.role as UserRole,
+            name: values.name,
+            email: values.email,
+            role: values.role,
+            operatorId: operatorId,
+            contractorId: contractorId,
+            company: companyName,
         };
         
-        if (values.role !== 'Security') {
-            delete newUser.assignedSiteId;
-        }
-        if (values.role !== 'Worker' && values.role !== 'Supervisor' && values.role !== 'Contractor Admin') {
-            delete newUser.contractorId;
-            delete newUser.company;
-        }
-        if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'Admin') {
-            delete newUser.operatorId;
+        if (values.role === 'Security') {
+            newUser.assignedSiteId = values.assignedSiteId;
         }
 
 
@@ -111,6 +113,14 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
             default: return "Enter the user's details. An email will be sent with a temporary password.";
         }
     }
+
+    const operatorSites = useMemo(() => {
+        if (currentUserRole === 'Operator Admin') {
+            return sites.filter(site => site.operatorId === currentUserOperatorId);
+        }
+        return sites;
+    }, [sites, currentUserRole, currentUserOperatorId]);
+
 
     return (
       <Form {...form}>
@@ -189,7 +199,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
                             <FormControl><SelectTrigger>
                                 <SelectValue placeholder={isLoading ? "Loading..." : "Assign a contractor"}/>
-                            </SelectTrigger></FormControl>
+                            </Trigger></FormControl>
                             <SelectContent>
                                 {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
@@ -199,7 +209,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                     )}
                 />
                 )}
-                 {(selectedRole === "Operator Admin") && currentUserRole === 'Admin' && (
+                 {(selectedRole === "Operator Admin" || (selectedRole === "Manager" && currentUserRole === 'Admin')) && (
                 <FormField
                     control={form.control}
                     name="operatorId"
@@ -209,7 +219,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
                             <FormControl><SelectTrigger>
                                 <SelectValue placeholder={isLoading ? "Loading..." : "Assign an operator"}/>
-                            </SelectTrigger></FormControl>
+                            </Trigger></FormControl>
                             <SelectContent>
                                 {operators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
@@ -246,7 +256,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {sites.map((site) => (
+                        {operatorSites.map((site) => (
                           <SelectItem key={site.id} value={site.id}>
                             {site.name}
                           </SelectItem>

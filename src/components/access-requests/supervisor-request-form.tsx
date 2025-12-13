@@ -19,6 +19,7 @@ import { serverFetchWorkerData } from "@/app/actions/workerActions";
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import { format, parseISO, isBefore } from "date-fns";
+import { Textarea } from "../ui/textarea";
 
 
 const certificateSchema = z.object({
@@ -41,6 +42,7 @@ const formSchema = z.object({
   siteId: z.string({ required_error: "Please select a site." }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
   focalPoint: z.string().min(2, { message: "Focal point name is required." }),
+  notes: z.string().optional(),
   workers: z.array(workerSchema).min(1, { message: "Please add at least one worker." }),
 });
 
@@ -65,6 +67,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             siteId: "",
             contractNumber: "",
             focalPoint: "",
+            notes: "",
             workers: [{ workerId: "", status: 'unchecked' }],
         },
     });
@@ -166,6 +169,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
                 focalPoint: values.focalPoint,
+                notes: values.notes,
                 workerList: verifiedWorkers.map(w => ({ 
                     id: w.workerId, 
                     name: w.name!, 
@@ -273,6 +277,20 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 )}
                             />
                         </div>
+
+                         <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Notes (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Add any relevant comments, instructions, or context for the approver..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         
                         <div className="space-y-4">
                           <FormLabel>Workers</FormLabel>
@@ -367,5 +385,3 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
         </Card>
     )
 }
-
-    

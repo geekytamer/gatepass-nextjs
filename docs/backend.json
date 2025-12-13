@@ -54,7 +54,8 @@
         "status": { "type": "string", "enum": ["Pending", "Approved", "Denied"] },
         "requestedAt": { "type": "string", "format": "date-time" },
         "validFrom": { "type": "string", "format": "date", "description": "The start date of the access validity period." },
-        "expiresAt": { "type": "string", "description": "The end date of the access validity period. Can also be 'Permanent'." }
+        "expiresAt": { "type": "string", "description": "The end date of the access validity period. Can also be 'Permanent'." },
+        "notes": { "type": "string", "description": "Optional notes or comments about the request." }
       },
       "required": ["supervisorId", "operatorId", "contractorId", "siteId", "contractNumber", "focalPoint", "workerIds", "status", "requestedAt"]
     },

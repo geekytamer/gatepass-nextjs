@@ -43,6 +43,7 @@ export type AccessRequest = {
   requestedAt: Timestamp | string;
   validFrom?: string; // ISO 8601 Date string "yyyy-MM-dd"
   expiresAt?: string; // ISO 8601 Date string "yyyy-MM-dd" or "Permanent"
+  notes?: string;
 };
 
 export type GateActivity = {

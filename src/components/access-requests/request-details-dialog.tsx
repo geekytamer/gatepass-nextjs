@@ -16,12 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AccessRequest, User, Certificate as CertificateType, Site } from "@/lib/types";
 import { format, isBefore, parseISO } from 'date-fns';
-import { Briefcase, Building, Calendar, Contact, FileBadge, Hash, ShieldAlert, ShieldCheck, User as UserIcon, Users } from "lucide-react";
+import { Briefcase, Building, Calendar, Contact, FileBadge, Hash, MessageSquare, ShieldAlert, ShieldCheck, User as UserIcon, Users } from "lucide-react";
 import { useWorkerData } from "@/hooks/use-worker-data";
 import { useFirestore } from "@/firebase";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
+import { Textarea } from "../ui/textarea";
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;
@@ -140,6 +141,12 @@ export function RequestDetailsDialog({ request, allUsers, open, onOpenChange }: 
                         <Input id="focalPoint" value={request.focalPoint} readOnly disabled icon={Contact} />
                     </div>
                 </div>
+                 {request.notes && (
+                    <div className="grid w-full items-center gap-1.5">
+                        <Label htmlFor="notes">Notes</Label>
+                        <Textarea id="notes" value={request.notes} readOnly disabled className="h-24"/>
+                    </div>
+                )}
             </div>
 
             <div className="space-y-4 p-4 rounded-lg border bg-background">

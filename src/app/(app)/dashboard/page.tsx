@@ -54,29 +54,33 @@ export default function DashboardPage() {
         const unsubs: (()=>void)[] = [];
 
         // Fetch all base data needed for filtering
-        if (isAdmin) {
-             unsubs.push(onSnapshot(collection(firestore, "operators"), snap => setOperators(snap.docs.map(d => ({id: d.id, ...d.data()} as Operator)))));
-             unsubs.push(onSnapshot(collection(firestore, "contractors"), snap => setContractors(snap.docs.map(d => ({id: d.id, ...d.data()} as Contractor)))));
-        }
+        const fetchBaseData = async () => {
+            if (isAdmin) {
+                unsubs.push(onSnapshot(collection(firestore, "operators"), snap => setOperators(snap.docs.map(d => ({id: d.id, ...d.data()} as Operator)))));
+                unsubs.push(onSnapshot(collection(firestore, "contractors"), snap => setContractors(snap.docs.map(d => ({id: d.id, ...d.data()} as Contractor)))));
+            }
 
-        let sitesQuery;
-        if (firestoreUser.role === 'Operator Admin') {
-            sitesQuery = query(collection(firestore, "sites"), where('operatorId', '==', firestoreUser.operatorId));
-        } else { // Admin or other roles
-            sitesQuery = collection(firestore, "sites");
-        }
-        unsubs.push(onSnapshot(sitesQuery, (snapshot) => {
-            const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+            let sitesQuery;
+            if (firestoreUser.role === 'Operator Admin') {
+                sitesQuery = query(collection(firestore, "sites"), where('operatorId', '==', firestoreUser.operatorId));
+            } else { // Admin or other roles
+                sitesQuery = collection(firestore, "sites");
+            }
+            const sitesSnapshot = await getDocs(sitesQuery);
+            const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
             setSites(sitesData);
-        }));
+            
+            // Fetch all users to map names to activity
+            const usersSnapshot = await getDocs(collection(firestore, 'users'));
+            const usersData = usersSnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as User));
+            setUsers(usersData);
+
+            await setupActivityListener(sitesData, usersData);
+            
+            setLoadingData(false);
+        };
         
-        // Fetch all users to map names to activity
-        unsubs.push(onSnapshot(collection(firestore, 'users'), (snap) => {
-            setUsers(snap.docs.map(doc => ({...doc.data(), id: doc.id} as User)));
-        }));
-
-
-        const setupActivityListener = async () => {
+        const setupActivityListener = async (currentSites: Site[], currentUsers: User[]) => {
             let activityQuery;
             
             const selectedCompany = combinedCompanies.find(c => c.id === selectedCompanyId);
@@ -85,12 +89,12 @@ export default function DashboardPage() {
                 activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
             } else if (isAdmin && selectedCompany) {
                 if (selectedCompany.type === 'operator') {
-                     const operatorSiteIds = sites.filter(s => s.operatorId === selectedCompany.id).map(s => s.id);
+                     const operatorSiteIds = currentSites.filter(s => s.operatorId === selectedCompany.id).map(s => s.id);
                      if(operatorSiteIds.length > 0) {
                          activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
                      }
                 } else { // contractor
-                    const contractorUserIds = users.filter(u => u.contractorId === selectedCompany.id).map(u => u.id);
+                    const contractorUserIds = currentUsers.filter(u => u.contractorId === selectedCompany.id).map(u => u.id);
                     if(contractorUserIds.length > 0) {
                         activityQuery = query(collection(firestore, 'gateActivity'), where('userId', 'in', contractorUserIds));
                     }
@@ -118,18 +122,16 @@ export default function DashboardPage() {
                 unsubs.push(onSnapshot(activityQuery, (snapshot) => {
                     const activityData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GateActivity));
                     setGateActivity(activityData);
-                    setLoadingData(false);
                 }));
             } else {
                 setGateActivity([]);
-                setLoadingData(false);
             }
         };
 
-        setupActivityListener();
+        fetchBaseData();
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, users, sites]); // Rerun when filters change
+    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin]); // Rerun when filters change
     
     if (loading) {
         return <div>Loading...</div>;

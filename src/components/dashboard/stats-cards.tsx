@@ -63,7 +63,11 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
 
           // Pending Requests
           let requestsQuery: Query = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
-          if (filterSiteIds) requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
+          if (filterSiteIds && filterSiteIds.length > 0) requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
+          else if (filterSiteIds?.length === 0) { // If there are no sites to filter by for a specific role, there can't be requests
+            requestsQuery = query(requestsQuery, where('siteId', 'in', ['non-existent-site']));
+          }
+
           if (companyId !== 'all') requestsQuery = query(requestsQuery, where('contractorId', '==', companyId));
           
           unsubs.push(onSnapshot(requestsQuery, (snapshot) => {
@@ -76,7 +80,10 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
             activityQuery = query(activityQuery, where('siteId', 'in', filterSiteIds));
           } else if (filterSiteIds === null && siteId !== 'all') { // a single site was selected that doesn't exist for this user
             activityQuery = null;
+          } else if (filterSiteIds?.length === 0 && role !== 'Admin') {
+            activityQuery = null;
           }
+
 
           if (activityQuery) {
             unsubs.push(onSnapshot(activityQuery, (activitySnap) => {

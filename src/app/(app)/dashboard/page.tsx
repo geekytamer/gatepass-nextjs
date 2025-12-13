@@ -36,13 +36,27 @@ export default function DashboardPage() {
     }, [operators, contractors]);
 
     const filteredSites = useMemo(() => {
-        if (selectedCompanyId === 'all') return sites;
+        if (selectedCompanyId === 'all') {
+             if (firestoreUser?.role === 'Operator Admin') {
+                return sites.filter(s => s.operatorId === firestoreUser.operatorId);
+            }
+            if (firestoreUser?.role === 'Manager') {
+                return sites.filter(s => s.managerIds.includes(firestoreUser.id));
+            }
+            return sites;
+        }
+        
         const selectedCompany = combinedCompanies.find(c => c.id === selectedCompanyId);
         if (selectedCompany?.type === 'operator') {
             return sites.filter(s => s.operatorId === selectedCompanyId);
         }
         return []; // Contractors don't own sites, so no sites to show.
-    }, [sites, selectedCompanyId, combinedCompanies]);
+    }, [sites, selectedCompanyId, combinedCompanies, firestoreUser]);
+
+    // When company changes, reset the site filter
+    useEffect(() => {
+        setSelectedSiteId('all');
+    }, [selectedCompanyId]);
 
 
      useEffect(() => {
@@ -63,6 +77,8 @@ export default function DashboardPage() {
             let sitesQuery;
             if (firestoreUser.role === 'Operator Admin') {
                 sitesQuery = query(collection(firestore, "sites"), where('operatorId', '==', firestoreUser.operatorId));
+            } else if (firestoreUser.role === 'Manager') {
+                sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
             } else { // Admin or other roles
                 sitesQuery = collection(firestore, "sites");
             }
@@ -75,46 +91,47 @@ export default function DashboardPage() {
             const usersData = usersSnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as User));
             setUsers(usersData);
 
-            await setupActivityListener(sitesData, usersData);
-            
             setLoadingData(false);
         };
         
-        const setupActivityListener = async (currentSites: Site[], currentUsers: User[]) => {
+        const setupActivityListener = () => {
             let activityQuery;
             
-            const selectedCompany = combinedCompanies.find(c => c.id === selectedCompanyId);
-
+            // This logic defines the scope of gate activities the user can see.
+            // It respects the cascading filters.
+            
+            // 1. Site filter has top priority.
             if (selectedSiteId !== 'all') {
                 activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
-            } else if (isAdmin && selectedCompany) {
-                if (selectedCompany.type === 'operator') {
-                     const operatorSiteIds = currentSites.filter(s => s.operatorId === selectedCompany.id).map(s => s.id);
-                     if(operatorSiteIds.length > 0) {
-                         activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
-                     }
-                } else { // contractor
-                    const contractorUserIds = currentUsers.filter(u => u.contractorId === selectedCompany.id).map(u => u.id);
-                    if(contractorUserIds.length > 0) {
+            } 
+            // 2. If no site is selected, check for a company filter.
+            else if (selectedCompanyId !== 'all') {
+                const operatorSiteIds = sites.filter(s => s.operatorId === selectedCompanyId).map(s => s.id);
+                if (operatorSiteIds.length > 0) {
+                    activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
+                } else {
+                    // This case handles when a contractor is selected.
+                    // We find all users of that contractor and filter activity by them.
+                    const contractorUserIds = users.filter(u => u.contractorId === selectedCompanyId).map(u => u.id);
+                    if (contractorUserIds.length > 0) {
                         activityQuery = query(collection(firestore, 'gateActivity'), where('userId', 'in', contractorUserIds));
                     }
                 }
-            } else {
+            } 
+            // 3. If no filters are set, use role-based scope.
+            else {
                 let siteIdsToFilter: string[] = [];
                 if (firestoreUser.role === 'Manager') {
-                    const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
-                    const sitesSnapshot = await getDocs(sitesQuery);
-                    siteIdsToFilter = sitesSnapshot.docs.map(doc => doc.id);
+                    siteIdsToFilter = sites.filter(s => s.managerIds.includes(firestoreUser.id)).map(s => s.id);
                 } else if (firestoreUser.role === 'Operator Admin') {
-                    const sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
-                    const sitesSnapshot = await getDocs(sitesQuery);
-                    siteIdsToFilter = sitesSnapshot.docs.map(doc => doc.id);
+                    siteIdsToFilter = sites.filter(s => s.operatorId === firestoreUser.operatorId).map(s => s.id);
+                } else if (firestoreUser.role === 'Admin') {
+                    // Admin sees all sites by default if no filter is selected.
+                     activityQuery = collection(firestore, "gateActivity");
                 }
 
-                if (siteIdsToFilter.length > 0) {
+                if (siteIdsToFilter.length > 0 && !activityQuery) {
                     activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', siteIdsToFilter));
-                } else if (firestoreUser.role === 'Admin') {
-                    activityQuery = collection(firestore, "gateActivity");
                 }
             }
             
@@ -128,10 +145,11 @@ export default function DashboardPage() {
             }
         };
 
-        fetchBaseData();
+        fetchBaseData().then(() => setupActivityListener());
+
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin]); // Rerun when filters change
+    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin, sites, users]); // Rerun when filters change
     
     if (loading) {
         return <div>Loading...</div>;
@@ -181,7 +199,7 @@ export default function DashboardPage() {
                 loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={filteredSites.length === 0 && selectedCompanyId !== 'all'}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select a site" />
                         </SelectTrigger>

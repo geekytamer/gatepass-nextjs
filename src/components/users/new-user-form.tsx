@@ -41,7 +41,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
             return ['Operator Admin', 'Contractor Admin'];
         }
         if (currentUserRole === 'Operator Admin') {
-            return ['Manager', 'Security'];
+            return ['Manager', 'Security', 'Worker'];
         }
         if (currentUserRole === 'Contractor Admin') {
             return ['Supervisor', 'Worker'];
@@ -69,7 +69,9 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
     async function onSubmit(values: FormValues) {
         let companyName: string | undefined;
 
-        if (values.role === 'Operator Admin' || values.role === 'Manager') {
+        if (currentUserRole === 'Operator Admin') {
+            companyName = operators.find(o => o.id === currentUserOperatorId)?.name;
+        } else if (values.role === 'Operator Admin' || values.role === 'Manager') {
             companyName = operators.find(o => o.id === values.operatorId)?.name;
         } else if (values.role === 'Contractor Admin' || values.role === 'Supervisor' || values.role === 'Worker') {
             companyName = contractors.find(c => c.id === values.contractorId)?.name;
@@ -108,7 +110,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
     const getRoleSpecificDescription = () => {
         switch(currentUserRole) {
             case 'Admin': return "Create a top-level administrator for an Operator or Contractor company.";
-            case 'Operator Admin': return "Create a new Manager or Security profile for your organization.";
+            case 'Operator Admin': return "Create a new Manager, Security, or Worker profile for your organization.";
             case 'Contractor Admin': return "Create a new Supervisor or Worker profile for your organization.";
             default: return "Enter the user's details. An email will be sent with a temporary password.";
         }
@@ -199,7 +201,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
                             <FormControl><SelectTrigger>
                                 <SelectValue placeholder={isLoading ? "Loading..." : "Assign a contractor"}/>
-                            </Trigger></FormControl>
+                            </SelectTrigger></FormControl>
                             <SelectContent>
                                 {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
@@ -219,7 +221,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
                             <FormControl><SelectTrigger>
                                 <SelectValue placeholder={isLoading ? "Loading..." : "Assign an operator"}/>
-                            </Trigger></FormControl>
+                            </SelectTrigger></FormControl>
                             <SelectContent>
                                 {operators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>

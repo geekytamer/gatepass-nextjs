@@ -16,7 +16,6 @@ export default function DashboardPage() {
     const firestore = useFirestore();
     const [sites, setSites] = useState<Site[]>([]);
     const [operators, setOperators] = useState<Operator[]>([]);
-    const [contractors, setContractors] = useState<Contractor[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [gateActivity, setGateActivity] = useState<GateActivity[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -26,14 +25,6 @@ export default function DashboardPage() {
     const canViewFullDashboard = firestoreUser && ['Admin', 'Operator Admin', 'Manager'].includes(firestoreUser.role);
     const isAdmin = firestoreUser?.role === 'Admin';
 
-
-    const combinedCompanies = useMemo(() => {
-        const allCompanies = [
-            ...operators.map(o => ({ id: o.id, name: o.name, type: 'operator' })),
-            ...contractors.map(c => ({ id: c.id, name: c.name, type: 'contractor' }))
-        ];
-        return allCompanies.sort((a,b) => a.name.localeCompare(b.name));
-    }, [operators, contractors]);
 
     const filteredSites = useMemo(() => {
         if (selectedCompanyId === 'all') {
@@ -46,12 +37,9 @@ export default function DashboardPage() {
             return sites;
         }
         
-        const selectedCompany = combinedCompanies.find(c => c.id === selectedCompanyId);
-        if (selectedCompany?.type === 'operator') {
-            return sites.filter(s => s.operatorId === selectedCompanyId);
-        }
-        return []; // Contractors don't own sites, so no sites to show.
-    }, [sites, selectedCompanyId, combinedCompanies, firestoreUser]);
+        return sites.filter(s => s.operatorId === selectedCompanyId);
+
+    }, [sites, selectedCompanyId, firestoreUser]);
 
     // When company changes, reset the site filter
     useEffect(() => {
@@ -71,7 +59,6 @@ export default function DashboardPage() {
         const fetchBaseData = async () => {
             if (isAdmin) {
                 unsubs.push(onSnapshot(collection(firestore, "operators"), snap => setOperators(snap.docs.map(d => ({id: d.id, ...d.data()} as Operator)))));
-                unsubs.push(onSnapshot(collection(firestore, "contractors"), snap => setContractors(snap.docs.map(d => ({id: d.id, ...d.data()} as Contractor)))));
             }
 
             let sitesQuery;
@@ -106,11 +93,6 @@ export default function DashboardPage() {
                 const operatorSiteIds = sites.filter(s => s.operatorId === selectedCompanyId).map(s => s.id);
                 if (operatorSiteIds.length > 0) {
                     activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
-                } else {
-                    const contractorUserIds = users.filter(u => u.contractorId === selectedCompanyId).map(u => u.id);
-                    if (contractorUserIds.length > 0) {
-                        activityQuery = query(collection(firestore, 'gateActivity'), where('userId', 'in', contractorUserIds));
-                    }
                 }
             } 
             else {
@@ -178,12 +160,12 @@ export default function DashboardPage() {
                 ) : (
                     <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
                         <SelectTrigger className="w-full md:w-[200px]">
-                            <SelectValue placeholder="Select a company" />
+                            <SelectValue placeholder="Select an operator" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Companies</SelectItem>
-                            {combinedCompanies.map(company => (
-                                <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                            <SelectItem value="all">All Operators</SelectItem>
+                            {operators.map(op => (
+                                <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

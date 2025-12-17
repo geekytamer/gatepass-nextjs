@@ -24,7 +24,6 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
         totalUsers: 0,
         pendingRequests: 0,
         checkedIn: 0,
-        totalVisitors: 0,
         totalSites: 0,
     });
     const [onSiteByCompany, setOnSiteByCompany] = useState<any[]>([]);
@@ -46,7 +45,6 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           if (siteId !== 'all') {
             sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
           } else if (companyId !== 'all') {
-            // Need to know if company is operator to filter sites
             const companyIsOperator = (await getDocs(query(collection(firestore, 'operators'), where('__name__', '==', companyId)))).size > 0;
             if (companyIsOperator) {
               sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', companyId));
@@ -60,11 +58,35 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           }
 
           const filterSiteIds = sitesQuery ? (await getDocs(sitesQuery)).docs.map(d => d.id) : null;
+          
+          if(sitesQuery) {
+            unsubs.push(onSnapshot(sitesQuery, (snapshot) => {
+              setStats(prev => ({...prev, totalSites: snapshot.size}));
+            }));
+          } else {
+             setStats(prev => ({...prev, totalSites: 0}));
+          }
+
+
+          // Total Users
+           let usersQuery: Query = query(collection(firestore, 'users'), where('role', 'in', ['Worker', 'Visitor']));
+           if (filterSiteIds) {
+            // This is tricky as users aren't directly linked to sites in a simple way for a general query.
+            // A more complex query might be needed, for now we show all workers/visitors if sites are filtered
+           }
+           if (companyId !== 'all') {
+            usersQuery = query(usersQuery, where('contractorId', '==', companyId));
+           }
+
+            unsubs.push(onSnapshot(usersQuery, (snapshot) => {
+                setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
+            }));
+
 
           // Pending Requests
           let requestsQuery: Query = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
           if (filterSiteIds && filterSiteIds.length > 0) requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
-          else if (filterSiteIds?.length === 0) { // If there are no sites to filter by for a specific role, there can't be requests
+          else if (filterSiteIds?.length === 0 && role !== 'Admin') {
             requestsQuery = query(requestsQuery, where('siteId', 'in', ['non-existent-site']));
           }
 
@@ -78,7 +100,7 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           let activityQuery: Query | null = collection(firestore, 'gateActivity');
           if (filterSiteIds && filterSiteIds.length > 0) {
             activityQuery = query(activityQuery, where('siteId', 'in', filterSiteIds));
-          } else if (filterSiteIds === null && siteId !== 'all') { // a single site was selected that doesn't exist for this user
+          } else if (filterSiteIds === null && siteId !== 'all') { 
             activityQuery = null;
           } else if (filterSiteIds?.length === 0 && role !== 'Admin') {
             activityQuery = null;
@@ -126,7 +148,8 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
 
         const latestActivity: Record<string, any> = {};
         activities.forEach(activity => {
-            if (!latestActivity[activity.userId] || new Date(activity.timestamp) > new Date(latestActivity[activity.userId].timestamp)) {
+            const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
+            if (!latestActivity[activity.userId] || timestamp > latestActivity[activity.userId].timestamp.toDate()) {
                 latestActivity[activity.userId] = activity;
             }
         });
@@ -141,7 +164,6 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
             }
         });
 
-        // If a company filter is active, further filter the on-site users
         if (companyIdFilter !== 'all') {
             onSiteUsers = onSiteUsers.filter(user => user.contractorId === companyIdFilter || user.operatorId === companyIdFilter);
         }
@@ -162,19 +184,30 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
 
     if (authLoading || loading) {
         return (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {[...Array(4)].map((_, i) => (
-                    <Card key={i}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <Skeleton className="h-4 w-[120px]" />
-                        <Skeleton className="h-4 w-4" />
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                <div className="lg:col-span-3 grid gap-4 md:grid-cols-2">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <Skeleton className="h-4 w-[120px]" />
+                            <Skeleton className="h-4 w-4" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="h-7 w-8" />
+                            <Skeleton className="h-3 w-[100px] mt-1" />
+                        </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                 <Card className="lg:col-span-2">
+                     <CardHeader>
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
                     </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-7 w-8" />
-                        <Skeleton className="h-3 w-[100px] mt-1" />
+                    <CardContent className="h-[200px]">
+                         <Skeleton className="h-full w-full" />
                     </CardContent>
-                    </Card>
-                ))}
+                 </Card>
             </div>
         );
     }
@@ -202,10 +235,10 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Visitors & Workers</CardTitle>
-                <Building className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                <div className="text-2xl font-bold">{stats.totalVisitors}</div>
+                <div className="text-2xl font-bold">{stats.totalUsers}</div>
                 <p className="text-xs text-muted-foreground">Registered external personnel</p>
                 </CardContent>
             </Card>
@@ -235,11 +268,11 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
   )
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-      <div className={`grid gap-4 ${renderGlobalStats ? 'md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="lg:col-span-3 grid gap-4 md:grid-cols-2">
         {renderCards()}
       </div>
-      <Card>
+      <Card className="lg:col-span-2">
         <CardHeader>
             <CardTitle>On-Site Personnel by Company</CardTitle>
             <CardDescription>{siteId === 'all' && companyId === 'all' ? 'Breakdown across all sites.' : 'Breakdown for the selected filter.'}</CardDescription>

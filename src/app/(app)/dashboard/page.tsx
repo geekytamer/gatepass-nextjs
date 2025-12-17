@@ -41,7 +41,7 @@ export default function DashboardPage() {
                 return sites.filter(s => s.operatorId === firestoreUser.operatorId);
             }
             if (firestoreUser?.role === 'Manager') {
-                return sites.filter(s => s.managerIds.includes(firestoreUser.id));
+                return sites.filter(s => firestoreUser.id && s.managerIds.includes(firestoreUser.id));
             }
             return sites;
         }
@@ -94,39 +94,32 @@ export default function DashboardPage() {
             setLoadingData(false);
         };
         
+        fetchBaseData();
+
         const setupActivityListener = () => {
             let activityQuery;
             
-            // This logic defines the scope of gate activities the user can see.
-            // It respects the cascading filters.
-            
-            // 1. Site filter has top priority.
             if (selectedSiteId !== 'all') {
                 activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
             } 
-            // 2. If no site is selected, check for a company filter.
             else if (selectedCompanyId !== 'all') {
                 const operatorSiteIds = sites.filter(s => s.operatorId === selectedCompanyId).map(s => s.id);
                 if (operatorSiteIds.length > 0) {
                     activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
                 } else {
-                    // This case handles when a contractor is selected.
-                    // We find all users of that contractor and filter activity by them.
                     const contractorUserIds = users.filter(u => u.contractorId === selectedCompanyId).map(u => u.id);
                     if (contractorUserIds.length > 0) {
                         activityQuery = query(collection(firestore, 'gateActivity'), where('userId', 'in', contractorUserIds));
                     }
                 }
             } 
-            // 3. If no filters are set, use role-based scope.
             else {
                 let siteIdsToFilter: string[] = [];
-                if (firestoreUser.role === 'Manager') {
-                    siteIdsToFilter = sites.filter(s => s.managerIds.includes(firestoreUser.id)).map(s => s.id);
+                if (firestoreUser.role === 'Manager' && firestoreUser.id) {
+                    siteIdsToFilter = sites.filter(s => s.managerIds.includes(firestoreUser.id!)).map(s => s.id);
                 } else if (firestoreUser.role === 'Operator Admin') {
                     siteIdsToFilter = sites.filter(s => s.operatorId === firestoreUser.operatorId).map(s => s.id);
                 } else if (firestoreUser.role === 'Admin') {
-                    // Admin sees all sites by default if no filter is selected.
                      activityQuery = collection(firestore, "gateActivity");
                 }
 
@@ -145,11 +138,12 @@ export default function DashboardPage() {
             }
         };
 
-        fetchBaseData().then(() => setupActivityListener());
+        // Call this after base data might have changed.
+        setupActivityListener();
 
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin, sites, users]); // Rerun when filters change
+    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin]); // Rerun when filters change
     
     if (loading) {
         return <div>Loading...</div>;

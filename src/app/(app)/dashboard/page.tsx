@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { StatsCards } from '@/components/dashboard/stats-cards';
-import { ContractorAccessChart } from '@/components/dashboard/contractor-access-chart';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import type { Site, GateActivity, User, Operator, Contractor } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -192,18 +191,10 @@ export default function DashboardPage() {
       </header>
 
       {canViewFullDashboard && (
-        <>
+        <div className="space-y-4 md:space-y-6">
             <StatsCards siteId={selectedSiteId} companyId={selectedCompanyId} />
-
-            <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
-                <div className="lg:col-span-3">
-                    <RecentActivityTable activity={gateActivity} users={users} sites={sites} isLoading={loadingData} />
-                </div>
-                 <div className="lg:col-span-2">
-                    <ContractorAccessChart siteId={selectedSiteId} companyId={selectedCompanyId}/>
-                </div>
-            </div>
-        </>
+            <RecentActivityTable activity={gateActivity} users={users} sites={sites} isLoading={loadingData} />
+        </div>
       )}
 
        {!canViewFullDashboard && (

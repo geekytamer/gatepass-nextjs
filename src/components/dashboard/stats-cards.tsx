@@ -45,10 +45,7 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           if (siteId !== 'all') {
             sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
           } else if (companyId !== 'all') {
-            const companyIsOperator = (await getDocs(query(collection(firestore, 'operators'), where('__name__', '==', companyId)))).size > 0;
-            if (companyIsOperator) {
-              sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', companyId));
-            }
+            sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', companyId));
           } else if (isManager) {
             sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', userId));
           } else if (firestoreUser.role === 'Operator Admin') {
@@ -69,15 +66,20 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
 
 
           // Total Users
-           let usersQuery: Query = query(collection(firestore, 'users'), where('role', 'in', ['Worker', 'Visitor']));
-           if (filterSiteIds) {
-            // This is tricky as users aren't directly linked to sites in a simple way for a general query.
-            // A more complex query might be needed, for now we show all workers/visitors if sites are filtered
-           }
-           if (companyId !== 'all') {
-            usersQuery = query(usersQuery, where('contractorId', '==', companyId));
-           }
-
+           let usersQuery: Query = query(collection(firestore, 'users'), where('role', 'in', ['Worker', 'Visitor', 'Supervisor']));
+            if (companyId !== 'all') {
+                // For users, we need to consider both contractors and operators
+                // This part can be complex depending on how you want to associate users with a selected 'company' (operator)
+                // Assuming for now, we filter users belonging to contractors that have requests for the operator's sites
+                // Or users belonging to the operator itself. This is a simplification.
+                usersQuery = query(usersQuery, where('operatorId', '==', companyId));
+            } else if (firestoreUser.role === 'Operator Admin') {
+                usersQuery = query(usersQuery, where('operatorId', '==', firestoreUser.operatorId));
+            } else if (isManager) {
+                // This is complex. We might show all users related to their managed sites' requests.
+                // For simplicity, let's keep it broad for managers for now.
+            }
+           
             unsubs.push(onSnapshot(usersQuery, (snapshot) => {
                 setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
             }));
@@ -87,10 +89,9 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           let requestsQuery: Query = query(collection(firestore, 'accessRequests'), where('status', '==', 'Pending'));
           if (filterSiteIds && filterSiteIds.length > 0) requestsQuery = query(requestsQuery, where('siteId', 'in', filterSiteIds));
           else if (filterSiteIds?.length === 0 && role !== 'Admin') {
+            // No sites match filter, so no requests can match
             requestsQuery = query(requestsQuery, where('siteId', 'in', ['non-existent-site']));
           }
-
-          if (companyId !== 'all') requestsQuery = query(requestsQuery, where('contractorId', '==', companyId));
           
           unsubs.push(onSnapshot(requestsQuery, (snapshot) => {
               setStats(prev => ({ ...prev, pendingRequests: snapshot.size }));
@@ -100,19 +101,18 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
           let activityQuery: Query | null = collection(firestore, 'gateActivity');
           if (filterSiteIds && filterSiteIds.length > 0) {
             activityQuery = query(activityQuery, where('siteId', 'in', filterSiteIds));
-          } else if (filterSiteIds === null && siteId !== 'all') { 
+          } else if (siteId !== 'all' || (companyId !== 'all' && (!filterSiteIds || filterSiteIds.length === 0))) { 
             activityQuery = null;
-          } else if (filterSiteIds?.length === 0 && role !== 'Admin') {
+          } else if (filterSiteIds?.length === 0 && role !== 'Admin' && companyId === 'all') {
             activityQuery = null;
           }
-
 
           if (activityQuery) {
             unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
               onSnapshot(collection(firestore, 'users'), (usersSnap) => {
                   const activities = activitySnap.docs.map(doc => ({...doc.data(), id: doc.id}) as GateActivity);
                   const users = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
-                  const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users, companyId);
+                  const { checkedInCount, onSiteByCompanyData } = processActivity(activities, users);
                   
                   const newChartConfig: ChartConfig = {};
                   const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -143,7 +143,7 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
 
     }, [firestore, firestoreUser, siteId, companyId]);
     
-    function processActivity(activities: GateActivity[], users: User[], companyIdFilter: string) {
+    function processActivity(activities: GateActivity[], users: User[]) {
         const userMap = new Map(users.map(u => [u.id, u]));
 
         const latestActivity: Record<string, any> = {};
@@ -163,10 +163,6 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
                 }
             }
         });
-
-        if (companyIdFilter !== 'all') {
-            onSiteUsers = onSiteUsers.filter(user => user.contractorId === companyIdFilter || user.operatorId === companyIdFilter);
-        }
         
         const checkedInCount = onSiteUsers.length;
 
@@ -216,34 +212,28 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
       return null;
   }
 
-  const renderGlobalStats = firestoreUser.role !== 'Manager' && siteId === 'all' && companyId === 'all';
-
   const renderCards = () => (
       <>
-       {renderGlobalStats && (
-        <>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sites</CardTitle>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                <div className="text-2xl font-bold">{stats.totalSites}</div>
-                <p className="text-xs text-muted-foreground">All operational sites</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Visitors & Workers</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                <p className="text-xs text-muted-foreground">Registered external personnel</p>
-                </CardContent>
-            </Card>
-        </>
-      )}
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Sites</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSites}</div>
+            <p className="text-xs text-muted-foreground">All operational sites</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Visitors & Workers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">Registered external personnel</p>
+            </CardContent>
+        </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
@@ -312,3 +302,4 @@ export function StatsCards({ siteId, companyId }: StatsCardsProps) {
     </div>
   );
 }
+
